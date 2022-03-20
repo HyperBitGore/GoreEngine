@@ -22,6 +22,21 @@ int main() {
 	Entity player = { 200, 300, 16737380};
 	SDL_Color yellow = { 255, 100, 100 };
 	std::cout << Gore_ConvertColorToUint32({ 255, 100, 100 }, surface->format) << std::endl;
+	SDL_Surface* pngsurf = Gore_loadPNG("bplayer1.png", SDL_PIXELFORMAT_RGB888, 50, 100);
+	SDL_Surface* imgsurf = Gore_LoadBMP("hatemalice.bmp", SDL_PIXELFORMAT_RGBA8888);
+	int x = 0;
+	int y = 10;
+	Uint32 col = 16737380;
+	for (int i = 0; i < 300; i++) {
+		x++;
+		if (i % 50 == 0) {
+			y++;
+			x = 0;
+		}
+		Gore_SetPixelSurface(imgsurf, &y, &x, &col);
+	}
+	SDL_Texture* tex2 = SDL_CreateTextureFromSurface(rend, pngsurf);
+	SDL_Texture* tex1 = SDL_CreateTextureFromSurface(rend, imgsurf);
 	while (!exitf) {
 		while (SDL_PollEvent(&e)) {
 			switch (e.type) {
@@ -45,6 +60,10 @@ int main() {
 		SDL_Texture* tex = SDL_CreateTextureFromSurface(rend, surface);
 		SDL_Rect rect = { 0, 0, surface->w, surface->h };
 		SDL_RenderCopy(rend, tex, NULL, &rect);
+		SDL_Rect erect = { 0, 0, 578, 496 };
+		SDL_RenderCopy(rend, tex1, NULL, &erect);
+		SDL_Rect prect = { 100, 100, 50, 100 };
+		SDL_RenderCopy(rend, tex2, NULL, &prect);
 		SDL_DestroyTexture(tex);
 		SDL_RenderPresent(rend);
 	}
