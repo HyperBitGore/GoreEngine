@@ -5,6 +5,7 @@
 #include "lodepng.h"
 
 
+
 struct TexListMem {
 	SDL_Texture* current;
 	TexListMem* next;
@@ -17,7 +18,7 @@ struct Alphabet {
 	char letters[26];
 };
 
-void insertTex(TexListMem*& tex, SDL_Texture* current, std::string name) {
+void Gore_insertTex(TexListMem*& tex, SDL_Texture* current, std::string name) {
 	texp t;
 	t = new TexListMem;
 	t->current = current;
@@ -26,7 +27,7 @@ void insertTex(TexListMem*& tex, SDL_Texture* current, std::string name) {
 	tex = t;
 }
 
-SDL_Texture* findTex(texp head, std::string name) {
+SDL_Texture* Gore_findTex(texp head, std::string name) {
 	texp temp = head;
 	while (temp != NULL) {
 		if (std::strcmp(temp->name.c_str(), name.c_str()) == 0) {
@@ -106,12 +107,27 @@ SDL_Surface* Gore_LoadBMP(const char* file, SDL_PixelFormatEnum format) {
 	return remove;
 }
 
-//Load texture into memory and read the text file with list of points for characters
-SDL_Texture* Gore_loadTextAtlas(std::string name) {
-
+//Loads textures into memory as a linked list. Keep width/heights even with names or you'll get an error
+texp& Gore_loadTextureList(std::vector<std::string> names, std::vector<unsigned int> widths, std::vector<unsigned int> heights, SDL_PixelFormatEnum format, SDL_Renderer* rend, std::string filepath = "NULL") {
+	texp head = NULL;
+	int j = 0;
+	for (auto& i : names) {
+		std::string t = i;
+		if (filepath != "NULL") {
+			t = filepath + i;
+		}
+		SDL_Surface* surf = Gore_loadPNG(t, format, widths[j], heights[j]);
+		SDL_Texture* tex = SDL_CreateTextureFromSurface(rend, surf);
+		Gore_insertTex(head, tex, i);
+		SDL_FreeSurface(surf);
+		j++;
+	}
+	return head;
 }
-SDL_Texture* findAlphabet(char c, Alphabet* alph) {
-	for (int i = 0; i < 26; i++) {
+
+//Need static letter sprites for this, fuck text atlas' all my homies hate text atlas'
+SDL_Texture* Gore_findAlphabet(char c, Alphabet* alph) {
+	for (int i = 25; i >= 0; i--) {
 		if (alph->letters[i] == c) {
 			return alph->texs[i];
 		}
@@ -120,17 +136,26 @@ SDL_Texture* findAlphabet(char c, Alphabet* alph) {
 }
 
 
-//Gonna start from last texture added to list, so add your letters in reverse alphabetical order
-void MapTextTextures(texp& textures, Alphabet* alph) {
+//Gonna start from last texture added to list, so add your letters in reverse alphabetical order. Could use SDL_ttf instead of static sprites so it would generate at runtime
+void Gore_MapTextTextures(texp& textures, Alphabet* alph) {
 	texp it = textures;
 	int i = 0;
+	int n = 122;
 	while (it != NULL) {
 		alph->texs[i] = it->current;
+		alph->letters[i] = n;
+		n--;
 		i++;
 		it = it->next;
 	}
 }
-void drawText(SDL_Renderer* rend, Alphabet* alph, std::string text) {
-
-	//SDL_RenderCopy(rend, );
+//Width and height for individual letters
+void Gore_drawText(SDL_Renderer* rend, Alphabet* alph, std::string text, int x, int y, int w, int h) {
+	int sx = x;
+	int sy = y;
+	for (auto& i : text) {
+		SDL_Rect rect = { sx, sy, w, h };
+		SDL_RenderCopy(rend, Gore_findAlphabet(i, alph), NULL, &rect);
+		sx += w + 1;
+	}
 }
