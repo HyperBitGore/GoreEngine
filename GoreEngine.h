@@ -4,7 +4,10 @@
 #include <SDL.h>
 #include "lodepng.h"
 
-
+//Didn't want to include windows header to do resource exe inclusion so just follow along with this page if you want to do this. 
+//https://stackoverflow.com/questions/22151099/including-data-file-into-c-project
+//or this
+//https://stackoverflow.com/questions/48326287/is-there-a-cross-platform-way-to-embed-resources-in-a-binary-application-written
 
 struct TexListMem {
 	SDL_Texture* current;
@@ -134,9 +137,7 @@ SDL_Texture* Gore_findAlphabet(char c, Alphabet* alph) {
 	}
 	return NULL;
 }
-
-
-//Gonna start from last texture added to list, so add your letters in reverse alphabetical order. Could use SDL_ttf instead of static sprites so it would generate at runtime
+//Add textures a to z because this works back from z to a. Could use SDL_ttf instead of static sprites so it would generate at runtime
 void Gore_MapTextTextures(texp& textures, Alphabet* alph) {
 	texp it = textures;
 	int i = 0;
