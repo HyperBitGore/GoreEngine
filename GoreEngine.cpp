@@ -107,35 +107,35 @@ texp& Gore::loadTextureList(std::vector<std::string> names, std::vector<unsigned
 	return head;
 }
 
-//Need static letter sprites for this, fuck text atlas' all my homies hate text atlas'
-SDL_Texture* Gore::findAlphabet(char c, Alphabet* alph) {
-	for (int i = 25; i >= 0; i--) {
-		if (alph->letters[i] == c) {
-			return alph->texs[i];
-		}
-	}
-	return NULL;
-}
-//Add textures a to z because this works back from z to a. Could use SDL_ttf instead of static sprites so it would generate at runtime
-void Gore::MapTextTextures(texp& textures, Alphabet* alph) {
-	texp it = textures;
-	int i = 0;
-	int n = 122;
-	while (it != NULL) {
-		alph->texs[i] = it->current;
-		alph->letters[i] = n;
-		n--;
-		i++;
-		it = it->next;
+//Input starting integer number for character then will loop through till it hits end of input whole time adding to out
+void Gore::mapTextTextures(int start, texp& out, texp& input) {
+	texp t = input;
+	while (t != NULL) {
+		std::string temp;
+		temp.push_back(start);
+		insertTex(out, t->current, temp);
+		start++;
+		t = t->next;
 	}
 }
+
 //Width and height for individual letters
-void Gore::drawText(SDL_Renderer* rend, Alphabet* alph, std::string text, int x, int y, int w, int h) {
+void Gore::drawText(SDL_Renderer* rend, texp& texthead, std::string text, int x, int y, int w, int h) {
 	int sx = x;
 	int sy = y;
 	for (auto& i : text) {
-		SDL_Rect rect = { sx, sy, w, h };
-		SDL_RenderCopy(rend, findAlphabet(i, alph), NULL, &rect);
-		sx += w + 1;
+		if (i == ' ') {
+			sx += w + 1;
+		}
+		else {
+			SDL_Rect rect = { sx, sy, w, h };
+			std::string t;
+			t.push_back(i);
+			SDL_Texture* temp = findTex(texthead, t);
+			if (temp != NULL) {
+				SDL_RenderCopy(rend, temp, NULL, &rect);
+				sx += w + 1;
+			}
+		}
 	}
 }
