@@ -15,7 +15,7 @@ int main() {
 	}
 	SDL_Window* window = SDL_CreateWindow("Test", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 800, 800, SDL_WINDOW_SHOWN);
 	SDL_Renderer* rend = SDL_CreateRenderer(window, -1, 0);
-	SDL_Surface* surface = SDL_CreateRGBSurfaceWithFormat(0, 800, 800, 32, SDL_PIXELFORMAT_RGB888);
+	SDL_Surface* surface = SDL_CreateRGBSurfaceWithFormat(0, 800, 800, 32, SDL_PIXELFORMAT_RGBA8888);
 	bool exitf = false;
 	SDL_Event e;
 	gore.clearSurface(surface);
@@ -38,7 +38,7 @@ int main() {
 	SDL_Texture* etex5 = gore.findTex(elist, "enemy5.png");
 	int x = 0;
 	int y = 10;
-	Uint32 col = 16737380;
+	Uint32 col = 1694126335;
 	for (int i = 0; i < 300; i++) {
 		x++;
 		if (i % 50 == 0) {
@@ -49,6 +49,10 @@ int main() {
 	}
 	SDL_Texture* tex2 = SDL_CreateTextureFromSurface(rend, pngsurf);
 	SDL_Texture* tex1 = SDL_CreateTextureFromSurface(rend, imgsurf);
+	const Uint8* keys;
+	keys = SDL_GetKeyboardState(NULL);
+	float ang = 90;
+	double delta;
 	while (!exitf) {
 		while (SDL_PollEvent(&e)) {
 			switch (e.type) {
@@ -59,28 +63,45 @@ int main() {
 		}
 		SDL_SetRenderDrawColor(rend, 0, 0, 0, 0);
 		SDL_RenderClear(rend);
-		int prevx, prevy;
-		prevx = player.x;
-		prevy = player.y;
-		for (int i = 0; i < 100; i++) {
-			player.x++;
-			player.y++;
-			gore.SetPixelSurface(surface, &player.x, &player.y, &player.pixel);
+		delta = gore.getDelta();
+		int fps = 1 / delta;
+		std::string temp = "Example - " + std::to_string(fps);
+		SDL_SetWindowTitle(window, temp.c_str());
+		if (keys[SDL_SCANCODE_RIGHT]) {
+			ang += 0.1;
 		}
-		player.x = prevx;
-		player.y = prevy;
+		else if (keys[SDL_SCANCODE_LEFT]) {
+			ang -= 0.1;
+		}
+		if (ang > 360) {
+			ang = 0;
+		}
+		else if (ang < 0) {
+			ang = 360;
+		}
+		gore.clearSurface(surface);
+		int yy = 500;
+		for (int i = 0; i < 800; i++) {
+			gore.SetPixelSurface(surface, &yy, &i, &col);
+		}
+		yy = 750;
+		for (int i = 0; i < 500; i++) {
+			gore.SetPixelSurface(surface, &i, &yy, &col);
+		}
+		Point p = gore.raycast2DPixel(surface, 200, 400, ang, 1);
 		SDL_Texture* tex = SDL_CreateTextureFromSurface(rend, surface);
 		SDL_Rect rect = { 0, 0, surface->w, surface->h };
 		SDL_RenderCopy(rend, tex, NULL, &rect);
-		SDL_Rect erect = { 0, 0, 578, 496 };
-		SDL_RenderCopy(rend, tex1, NULL, &erect);
-		SDL_Rect prect = { 100, 100, 50, 100 };
-		SDL_RenderCopy(rend, tex2, NULL, &prect);
-		SDL_Rect enemy1rect = { 300, 300, 50, 100 };
-		SDL_RenderCopy(rend, gore.findTex(elist, "enemy1.png"), NULL, &enemy1rect);
-		SDL_Rect enemy5rect = { 250, 400, 50, 100 };
-		SDL_RenderCopy(rend, etex5, NULL, &enemy5rect);
-		gore.drawText(rend, alph, "hello world a", 0, 550, 25, 30);
+		//uncomment this code for testing of images and text drawing
+		//SDL_Rect erect = { 0, 0, 578, 496 };
+		//SDL_RenderCopy(rend, tex1, NULL, &erect);
+		//SDL_Rect prect = { 100, 100, 50, 100 };
+		//SDL_RenderCopy(rend, tex2, NULL, &prect);
+		//SDL_Rect enemy1rect = { 300, 300, 50, 100 };
+		//SDL_RenderCopy(rend, gore.findTex(elist, "enemy1.png"), NULL, &enemy1rect);
+		//SDL_Rect enemy5rect = { 250, 400, 50, 100 };
+		//SDL_RenderCopy(rend, etex5, NULL, &enemy5rect);
+		//gore.drawText(rend, alph, "hello world a", 0, 550, 25, 30);
 		SDL_DestroyTexture(tex);
 		SDL_RenderPresent(rend);
 	}

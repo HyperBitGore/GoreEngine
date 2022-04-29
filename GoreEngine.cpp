@@ -20,6 +20,27 @@ SDL_Texture* Gore::findTex(texp head, std::string name) {
 	return NULL;
 }
 
+void Gore::insertSprite(spxp& sp, SDL_Surface* surf, std::string name) {
+	spxp t;
+	t = new SpriteListMem;
+	t->current = surf;
+	t->next = sp;
+	t->name = name;
+	sp = t;
+}
+SDL_Surface* Gore::findSprite(spxp sp, std::string name) {
+	spxp temp = sp;
+	while (temp != NULL) {
+		if (temp->name.compare(name) == 0) {
+			return temp->current;
+		}
+		temp = temp->next;
+	}
+	return NULL;
+}
+
+
+//Pixel manipulation
 void Gore::SetPixelSurface(SDL_Surface* surf, int* y, int* x, Uint32* pixel) {
 	SDL_LockSurface(surf);
 	Uint32* pixels = (Uint32*)surf->pixels;
@@ -27,10 +48,10 @@ void Gore::SetPixelSurface(SDL_Surface* surf, int* y, int* x, Uint32* pixel) {
 	SDL_UnlockSurface(surf);
 }
 Uint32 Gore::GetPixelSurface(SDL_Surface* surf, int* y, int* x) {
-	SDL_LockSurface(surf);
+	//SDL_LockSurface(surf);
 	Uint32* pixels = (Uint32*)surf->pixels;
-	SDL_UnlockSurface(surf);
-	return (Uint32)pixels[(*y * surf->w) + *x];
+	//SDL_UnlockSurface(surf);
+	return pixels[*y * surf->w + *x];
 }
 void Gore::SetPixelSurfaceColor(SDL_Surface* surf, int* y, int* x, SDL_Color* color) {
 	SDL_LockSurface(surf);
@@ -45,22 +66,29 @@ Uint32 Gore::ConvertColorToUint32(SDL_Color color, SDL_PixelFormat* format) {
 }
 void Gore::clearSurface(SDL_Surface* surf) {
 	SDL_LockSurface(surf);
-	memset(surf->pixels, 0, (surf->w * surf->h) * (sizeof(surf->pixels)));
+	memset(surf->pixels, 0, (surf->w * surf->h) * surf->format->BytesPerPixel);
 	SDL_UnlockSurface(surf);
 }
-
+void Gore::clearTexture(SDL_Texture* tex, int* pitch, int w, int h) {
+	Uint32* pixels;
+	SDL_LockTexture(tex, NULL, (void**)&pixels, pitch);
+	memset(pixels, 0, (w * h) * (sizeof(pixels)));
+	SDL_UnlockTexture(tex);
+}
 //Texture has to be made with SDL_TEXTUREACCESS_STREAMING flag
+//Have to divide the pitch by sizeof(unsigned int) to get proper x and y 
 void Gore::SetPixelTexture(SDL_Texture* tex, int* y, int* x, Uint32* pixel, int* pitch) {
 	Uint32* pixels;
 	SDL_LockTexture(tex, NULL, (void**)&pixels, pitch);
-	pixels[(*y * (*pitch)) + *x] = *pixel;
+	pixels[*y * ((*pitch) / sizeof(unsigned int)) + *x] = *pixel;
 	SDL_UnlockTexture(tex);
 }
-Uint32 Gore::GetPixelTexture(SDL_Texture* tex, int* y, int* x, int* w, int* pitch) {
+//Faster if you leave this locked, 
+Uint32 Gore::GetPixelTexture(SDL_Texture* tex, int* y, int* x, int* pitch) {
 	Uint32* pixels;
 	SDL_LockTexture(tex, NULL, (void**)&pixels, pitch);
+	return pixels[*y * ((*pitch) / sizeof(unsigned int)) + *x];
 	SDL_UnlockTexture(tex);
-	return pixels[(*y * (*w)) + *x];
 }
 //Decodes everything to a 32bit pixel format, but can convert your format to any type
 SDL_Surface* Gore::loadPNG(std::string name, SDL_PixelFormatEnum format, int w, int h) {
@@ -106,7 +134,23 @@ texp& Gore::loadTextureList(std::vector<std::string> names, std::vector<unsigned
 	}
 	return head;
 }
+spxp& Gore::loadSpriteList(std::vector<std::string> names, std::vector<unsigned int> widths, std::vector<unsigned int> heights, SDL_PixelFormatEnum format, SDL_Renderer* rend, std::string filepath) {
+	spxp head = NULL;
+	int j = 0;
+	for (auto& i : names) {
+		std::string t = i;
+		if (filepath != "NULL") {
+			t = filepath + i;
+		}
+		SDL_Surface* surf = loadPNG(t, format, widths[j], heights[j]);
+		insertSprite(head, surf, i);
+		j++;
+	}
+	return head;
+}
 
+
+//Text functions
 //Input starting integer number for character then will loop through till it hits end of input whole time adding to out
 void Gore::mapTextTextures(int start, texp& out, texp& input) {
 	texp t = input;
@@ -138,4 +182,41 @@ void Gore::drawText(SDL_Renderer* rend, texp& texthead, std::string text, int x,
 			}
 		}
 	}
+}
+
+
+//Misc
+double Gore::getDelta() {
+	double delta = 0;
+	LAST = NOW;
+	NOW = SDL_GetPerformanceCounter();
+	delta = (double)((NOW - LAST) * 1000 / (double)SDL_GetPerformanceFrequency());
+	delta = delta * 0.001;
+	return delta;
+}
+Point Gore::raycast2DPixel(SDL_Surface* surf, int sx, int sy, float angle, int step) {
+	float stepx = cosf(angle * M_PI / 180);
+	float stepy = sinf(angle * M_PI / 180);
+	//stepx = stepx * 180.0 / M_PI;
+	//stepy = stepy * 180.0 / M_PI;
+	Uint32 col = GetPixelSurface(surf, &sy, &sx);
+	SDL_Color set = { 100, 250, 80, 0 };
+	float cx = sx;
+	float cy = sy;
+	int lbx = sx;
+	int lby = sy;
+	while (col == 0 && cx > 0 && cx < surf->w && cy > 0 && cy < surf->h) {
+		cx += stepx;
+		cy += stepy;
+		int bx = (int)cx;
+		int by = (int)cy;
+		//have to check if current int position has already been checked so we don't check it twice
+		if (lbx != bx || lby != by) {
+			col = GetPixelSurface(surf, &by, &bx);
+			SetPixelSurfaceColor(surf, &by, &bx, &set);
+		}
+		lbx = bx;
+		lby = by;
+	}
+	return {(int)cx, (int)cy};
 }
