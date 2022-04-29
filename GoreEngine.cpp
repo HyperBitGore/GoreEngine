@@ -195,16 +195,18 @@ double Gore::getDelta() {
 	return delta;
 }
 Point Gore::raycast2DPixel(SDL_Surface* surf, int sx, int sy, float angle, int step) {
+	//get the trajectory to step for each axis
 	float stepx = cosf(angle * M_PI / 180);
 	float stepy = sinf(angle * M_PI / 180);
-	//stepx = stepx * 180.0 / M_PI;
-	//stepy = stepy * 180.0 / M_PI;
+	//init needed variables
 	Uint32 col = GetPixelSurface(surf, &sy, &sx);
 	SDL_Color set = { 100, 250, 80, 0 };
 	float cx = sx;
 	float cy = sy;
 	int lbx = sx;
 	int lby = sy;
+	//instead of a bunch of getpixel calls we just get pixel data once
+	Uint32* pixels = (Uint32*)surf->pixels;
 	while (col == 0 && cx > 0 && cx < surf->w && cy > 0 && cy < surf->h) {
 		cx += stepx;
 		cy += stepy;
@@ -212,11 +214,10 @@ Point Gore::raycast2DPixel(SDL_Surface* surf, int sx, int sy, float angle, int s
 		int by = (int)cy;
 		//have to check if current int position has already been checked so we don't check it twice
 		if (lbx != bx || lby != by) {
-			col = GetPixelSurface(surf, &by, &bx);
-			SetPixelSurfaceColor(surf, &by, &bx, &set);
+			col = pixels[by * surf->w + bx];
 		}
 		lbx = bx;
 		lby = by;
 	}
-	return {(int)cx, (int)cy};
+	return { lbx , lby };
 }

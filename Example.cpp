@@ -92,6 +92,9 @@ int main() {
 		SDL_Texture* tex = SDL_CreateTextureFromSurface(rend, surface);
 		SDL_Rect rect = { 0, 0, surface->w, surface->h };
 		SDL_RenderCopy(rend, tex, NULL, &rect);
+		SDL_SetRenderDrawColor(rend, 255, 50, 120, 0);
+		SDL_Rect epprect = { p.x, p.y, 10, 10 };
+		SDL_RenderFillRect(rend, &epprect);
 		//uncomment this code for testing of images and text drawing
 		//SDL_Rect erect = { 0, 0, 578, 496 };
 		//SDL_RenderCopy(rend, tex1, NULL, &erect);
