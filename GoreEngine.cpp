@@ -47,13 +47,27 @@ void Gore::SetPixelSurface(SDL_Surface* surf, int* y, int* x, Uint32* pixel) {
 	pixels[(*y * surf->w) + *x] = *pixel;
 	SDL_UnlockSurface(surf);
 }
+void Gore::SetPixelSurface(SDL_Surface* surf, int y, int x, Uint32 pixel) {
+	SDL_LockSurface(surf);
+	Uint32* pixels = (Uint32*)surf->pixels;
+	pixels[(y * surf->w) + x] = pixel;
+	SDL_UnlockSurface(surf);
+}
+
 Uint32 Gore::GetPixelSurface(SDL_Surface* surf, int* y, int* x) {
 	//SDL_LockSurface(surf);
 	Uint32* pixels = (Uint32*)surf->pixels;
 	//SDL_UnlockSurface(surf);
 	return pixels[*y * surf->w + *x];
 }
-void Gore::SetPixelSurfaceColor(SDL_Surface* surf, int* y, int* x, SDL_Color* color) {
+void Gore::SetPixelSurfaceColorRGBA(SDL_Surface* surf, int* y, int* x, SDL_Color* color) {
+	SDL_LockSurface(surf);
+	Uint32* pixels = (Uint32*)surf->pixels;
+	Uint32* pixel = pixels + (*y * surf->w) + *x;
+	*pixel = SDL_MapRGBA(surf->format, color->r, color->g, color->b, color->a);
+	SDL_UnlockSurface(surf);
+}
+void Gore::SetPixelSurfaceColorRGB(SDL_Surface* surf, int* y, int* x, SDL_Color* color) {
 	SDL_LockSurface(surf);
 	Uint32* pixels = (Uint32*)surf->pixels;
 	Uint32* pixel = pixels + (*y * surf->w) + *x;
@@ -61,8 +75,11 @@ void Gore::SetPixelSurfaceColor(SDL_Surface* surf, int* y, int* x, SDL_Color* co
 	SDL_UnlockSurface(surf);
 }
 
-Uint32 Gore::ConvertColorToUint32(SDL_Color color, SDL_PixelFormat* format) {
+Uint32 Gore::ConvertColorToUint32RGB(SDL_Color color, SDL_PixelFormat* format) {
 	return SDL_MapRGB(format, color.r, color.g, color.b);
+}
+Uint32 Gore::ConvertColorToUint32RGBA(SDL_Color color, SDL_PixelFormat* format) {
+	return SDL_MapRGBA(format, color.r, color.g, color.b, color.a);
 }
 void Gore::clearSurface(SDL_Surface* surf) {
 	SDL_LockSurface(surf);
@@ -203,8 +220,6 @@ Point Gore::raycast2DPixel(SDL_Surface* surf, int sx, int sy, float angle, int s
 	SDL_Color set = { 100, 250, 80, 0 };
 	float cx = sx;
 	float cy = sy;
-	int lbx = sx;
-	int lby = sy;
 	//instead of a bunch of getpixel calls we just get pixel data once
 	Uint32* pixels = (Uint32*)surf->pixels;
 	while (col == 0 && cx > 0 && cx < surf->w && cy > 0 && cy < surf->h) {
@@ -212,12 +227,117 @@ Point Gore::raycast2DPixel(SDL_Surface* surf, int sx, int sy, float angle, int s
 		cy += stepy;
 		int bx = (int)cx;
 		int by = (int)cy;
-		//have to check if current int position has already been checked so we don't check it twice
-		if (lbx != bx || lby != by) {
-			col = pixels[by * surf->w + bx];
-		}
-		lbx = bx;
-		lby = by;
+		col = pixels[by * surf->w + bx];
 	}
-	return { lbx , lby };
+	return { (int)cx , (int)cy };
+}
+
+
+SDL_Surface* Gore::createCircle(int w, int h, SDL_Color startcolor) {
+	SDL_Surface* surf = SDL_CreateRGBSurfaceWithFormat(0, w, h, 32, SDL_PIXELFORMAT_RGBA8888);
+
+	int x = ((w >> 1) - 1);
+	int y = 0;
+	int tx = 1;
+	int ty = 1;
+	int error = (tx - w);
+
+	int sx = (w>>1);
+	int sy = (h>>1);
+	Uint32 col = ConvertColorToUint32RGB(startcolor, surf->format);
+	while (x >= y)
+	{
+		//  Each of the following renders an octant of the circle
+		SetPixelSurface(surf, sy - y, sx + x, col);
+		SetPixelSurface(surf,sy + y, sx + x,  col);
+		SetPixelSurface(surf, sy - y, sx - x, col);
+		SetPixelSurface(surf, sy + y, sx - x, col);
+		SetPixelSurface(surf, sy - x, sx + y, col);
+		SetPixelSurface(surf, sy + x, sx + y, col);
+		SetPixelSurface(surf, sy - x, sx - y, col);
+		SetPixelSurface(surf, sy + x, sx - y, col);
+		if (error <= 0)
+		{
+			++y;
+			error += ty;
+			ty += 2;
+		}
+
+		if (error > 0)
+		{
+			--x;
+			tx += 2;
+			error += (tx - w);
+		}
+	}
+	return surf;
+}
+SDL_Surface* Gore::fillCircle(int w, int h, SDL_Color startcolor) {
+	int radius = (w >> 1);
+	SDL_Surface* surf = SDL_CreateRGBSurfaceWithFormat(0, w, h, 32, SDL_PIXELFORMAT_RGBA8888);
+	Uint32 curcol = ConvertColorToUint32RGB(startcolor, surf->format);
+	double area = M_PI * (std::pow((double)radius, 2));
+	for (int y = 0; y < h; y++) {
+		for (int x = 0; x < w; x++) {
+			float dx = radius - x;
+			float dy = radius - y;
+			float distance = sqrtf(std::powf(dx, 2) + std::powf(dy, 2));
+			if (distance - radius < 1) {
+				SetPixelSurface(surf, &y, &x, &curcol);
+			}
+		}
+	}
+	return surf;
+}
+SDL_Surface* Gore::createBloom(int w, int h, SDL_Color startcolor, float magnitude) {
+	int radius = (w >> 1);
+	SDL_Surface* surf = SDL_CreateRGBSurfaceWithFormat(0, w, h, 32, SDL_PIXELFORMAT_RGBA8888);
+	SDL_SetSurfaceBlendMode(surf, SDL_BLENDMODE_BLEND);
+	Uint32 curcol = ConvertColorToUint32RGBA(startcolor, surf->format);
+	double area = M_PI * (std::pow((double)radius, 2));
+	for (int y = 0; y < h; y++) {
+		for (int x = 0; x < w; x++) {
+			float dx = radius - x;
+			float dy = radius - y;
+			float distance = sqrtf(std::powf(dx, 2) + std::powf(dy, 2));
+			float xp, yp;
+			if (x < radius) {
+				xp = std::powf(std::abs(0 - x), 2);
+			}
+			else {
+				xp = std::powf(w - x, 2);
+			}
+			if (y < (h>>1)) {
+				yp = std::powf(std::abs(0 - y), 2);
+			}
+			else {
+				yp = std::powf(h - y, 2);
+			}
+			float distfromside = sqrtf(xp + yp);
+			if (distance - radius < 1) {
+				//SDL_Color col = { startcolor.r, startcolor.g, startcolor.b, distance };
+				//SetPixelSurfaceColorRGBA(surf, &y, &x, &col);
+				curcol = ConvertColorToUint32RGBA({ startcolor.r, startcolor.g, startcolor.b, (Uint8)(distfromside * magnitude) }, surf->format);
+				SetPixelSurface(surf, &y, &x, &curcol);
+			}
+		}
+	}
+	return surf;
+}
+
+
+//Memory related
+char* Gore::serilizeStruct(char* ptr, int size) {
+	char* mt = (char*)std::malloc(size);
+	for (int i = 0; i < size; i++) {
+		mt[i] = *ptr;
+		ptr++;
+	}
+	return mt;
+}
+void Gore::deserilizeStruct(char* dest, char* data, int size) {
+	for (int i = 0; i < size; i++) {
+		*dest = data[i];
+		dest++;
+	}
 }
