@@ -74,6 +74,8 @@ int main() {
 	char* des = (char*)&a;
 	gore.deserilizeStruct(des, st, sizeof(BASE));
 	std::cout << a.x << std::endl;
+	bool* points = gore.createPoints(imgsurf);
+	std::cout << points << std::endl;
 	//just use default fullscreen SDL2 provides
 	//SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN);
 	while (!exitf) {
@@ -114,7 +116,19 @@ int main() {
 		else if (keys[SDL_SCANCODE_D]) {
 			player.x += 100 * delta;
 		}
-
+		int mx, my;
+		//not the most efficent way to do this
+		if (SDL_GetMouseState(&mx, &my) & SDL_BUTTON(SDL_BUTTON_LEFT)) {
+			if (mx >= 0 && mx < 578 && my >= 0 && my < 496) {
+				if (!points[(my * (imgsurf->pitch / 8)) + mx]) {
+					points[(my * (imgsurf->pitch / 8)) + mx] = true;
+					Uint32 col = 0;
+					gore.SetPixelSurface(imgsurf, &my, &mx, &col);
+					SDL_DestroyTexture(tex1);
+					tex1 = SDL_CreateTextureFromSurface(rend, imgsurf);
+				}
+			}
+		}
 		gore.clearSurface(surface);
 		int yy = 500;
 		for (int i = 0; i < 800; i++) {
@@ -145,4 +159,5 @@ int main() {
 		SDL_DestroyTexture(tex);
 		SDL_RenderPresent(rend);
 	}
+	return 0;
 }

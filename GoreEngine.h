@@ -71,4 +71,6 @@ public:
 	//memory related
 	char* serilizeStruct(char* ptr, int size);
 	void deserilizeStruct(char* dest, char* data, int size);
+	//point system
+	bool* createPoints(SDL_Surface* surf);
 };

@@ -327,6 +327,7 @@ SDL_Surface* Gore::createBloom(int w, int h, SDL_Color startcolor, float magnitu
 
 
 //Memory related
+//This should work fine even if your computer pads structs, but also might not I have no way to test
 char* Gore::serilizeStruct(char* ptr, int size) {
 	char* mt = (char*)std::malloc(size);
 	for (int i = 0; i < size; i++) {
@@ -340,4 +341,22 @@ void Gore::deserilizeStruct(char* dest, char* data, int size) {
 		*dest = data[i];
 		dest++;
 	}
+}
+//point system
+//Memory footprint high, if I pack data into bits instead of bytes will reduce greatly
+bool* Gore::createPoints(SDL_Surface* surf) {
+	bool* pt = (bool*)std::malloc((surf->w * surf->h));
+	for (int i = 0; i < surf->h; i++) {
+		for (int j = 0; j < surf->w; j++) {
+			Uint32 col = GetPixelSurface(surf, &i, &j);
+			if (col > 0) {
+				*pt = false;
+			}
+			else {
+				*pt = true;
+			}
+			pt++;
+		}
+	}
+	return pt;
 }
