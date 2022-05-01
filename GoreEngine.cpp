@@ -344,6 +344,7 @@ void Gore::deserilizeStruct(char* dest, char* data, int size) {
 }
 //point system
 //Memory footprint high, if I pack data into bits instead of bytes will reduce greatly
+//Really useful for an animation system
 bool* Gore::createPoints(SDL_Surface* surf) {
 	bool* pt = (bool*)std::malloc((surf->w * surf->h));
 	for (int i = 0; i < surf->h; i++) {
@@ -359,4 +360,72 @@ bool* Gore::createPoints(SDL_Surface* surf) {
 		}
 	}
 	return pt;
+}
+
+TrList Gore::generatePixelTransforms(spxp& spritelist) {
+	TrList list = new PixelTransform;
+	spxp ptr = spritelist;
+	int n = 0;
+	SDL_Surface* prev = spritelist->current;
+	while (ptr != NULL) {
+		if (n > 0) {
+			PixelTransform* p = new PixelTransform;
+			size_t size = 12;
+			size_t index = 0;
+			//parse difference from previous frame
+			for (int i = 0; i < ptr->current->h; i++) {
+				for (int j = 0; j < ptr->current->w; j++) {
+					Uint32 curcol = GetPixelSurface(ptr->current, &i, &j);
+					Uint32 prevcol = GetPixelSurface(prev, &i, &j);
+					if (curcol != prevcol) {
+						char dat[12];
+						int* c = (int*)dat;
+						*c = j;
+						c++;
+						*c = i;
+						c++;
+						//writing color data now
+						Uint32* ct = (Uint32*)c;
+						*ct = curcol;
+						//now put into datapool somehow
+						p->data = (char*)realloc(p->data, size);
+						for (int k = index, m = 0; k < size && m < 12; k++, m++) {
+							p->data[k] = dat[m];
+						}
+						size += 12;
+						index += 12;
+					}
+				}
+			}
+			p->size = size;
+			p->next = list;
+			list = p;
+		}
+		n++;
+		prev = ptr->current;
+		ptr = ptr->next;
+	}
+	return list;
+}
+//Handle frame switching elsewhere?
+void Gore::switchTranformFrames(SDL_Surface* surf, TrList& frames, TrList& begin) {
+	frames = frames->next;
+	if (frames == NULL) {
+		frames = begin;
+	}
+	//go through each frames data and change the surface
+	size_t datapos = 0;
+	for (int i = 0; i < frames->size; i+=12) {
+		int* p = (int*)&frames->data[datapos];
+		int x, y;
+		Uint32 col;
+		x = *p;
+		p++;
+		y = *p;
+		p++;
+		Uint32* d = (Uint32*)p;
+		col = *d;
+		SetPixelSurface(surf, &y, &x, &col);
+		datapos += (sizeof(int) * 2) + sizeof(Uint32);
+	}
 }

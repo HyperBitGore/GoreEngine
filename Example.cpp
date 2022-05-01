@@ -75,7 +75,6 @@ int main() {
 	gore.deserilizeStruct(des, st, sizeof(BASE));
 	std::cout << a.x << std::endl;
 	bool* points = gore.createPoints(imgsurf);
-	std::cout << points << std::endl;
 	//just use default fullscreen SDL2 provides
 	//SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN);
 	while (!exitf) {

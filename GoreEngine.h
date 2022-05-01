@@ -25,15 +25,19 @@ struct Point {
 	int x;
 	int y;
 };
+//0 byte: x, 1 byte: y, next 4 bytes: color data; repeat through data;
+struct PixelTransform {
+	char* data;
+	size_t size;
+	PixelTransform* next;
+};
+typedef PixelTransform* TrList;
 
 class Gore {
 private:
 	Uint64 LAST = 0;
 	Uint64 NOW = SDL_GetPerformanceCounter();
 public:
-
-
-
 	//Texture lists
 	void insertTex(TexListMem*& tex, SDL_Texture* current, std::string name);
 	SDL_Texture* findTex(texp head, std::string name);
@@ -73,4 +77,6 @@ public:
 	void deserilizeStruct(char* dest, char* data, int size);
 	//point system
 	bool* createPoints(SDL_Surface* surf);
+	TrList generatePixelTransforms(spxp& spritelist);
+	void switchTranformFrames(SDL_Surface* surf, TrList& frames, TrList& begin);
 };
