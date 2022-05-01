@@ -151,7 +151,7 @@ texp& Gore::loadTextureList(std::vector<std::string> names, std::vector<unsigned
 	}
 	return head;
 }
-spxp& Gore::loadSpriteList(std::vector<std::string> names, std::vector<unsigned int> widths, std::vector<unsigned int> heights, SDL_PixelFormatEnum format, SDL_Renderer* rend, std::string filepath) {
+spxp& Gore::loadSpriteList(std::vector<std::string> names, std::vector<unsigned int> widths, std::vector<unsigned int> heights, SDL_PixelFormatEnum format, std::string filepath) {
 	spxp head = NULL;
 	int j = 0;
 	for (auto& i : names) {
@@ -361,40 +361,47 @@ bool* Gore::createPoints(SDL_Surface* surf) {
 	}
 	return pt;
 }
-
+//Need to improve finding of differences between frames; ignores some differences for some reason
 TrList Gore::generatePixelTransforms(spxp& spritelist) {
-	TrList list = new PixelTransform;
+	TrList list = NULL;
 	spxp ptr = spritelist;
 	int n = 0;
 	SDL_Surface* prev = spritelist->current;
 	while (ptr != NULL) {
 		if (n > 0) {
 			PixelTransform* p = new PixelTransform;
-			size_t size = 12;
+			size_t size = 0;
 			size_t index = 0;
+			std::vector<int>xs;
+			std::vector<int>ys;
+			std::vector<Uint32>cols;
 			//parse difference from previous frame
 			for (int i = 0; i < ptr->current->h; i++) {
 				for (int j = 0; j < ptr->current->w; j++) {
 					Uint32 curcol = GetPixelSurface(ptr->current, &i, &j);
 					Uint32 prevcol = GetPixelSurface(prev, &i, &j);
 					if (curcol != prevcol) {
-						char dat[12];
-						int* c = (int*)dat;
-						*c = j;
-						c++;
-						*c = i;
-						c++;
-						//writing color data now
-						Uint32* ct = (Uint32*)c;
-						*ct = curcol;
-						//now put into datapool somehow
-						p->data = (char*)realloc(p->data, size);
-						for (int k = index, m = 0; k < size && m < 12; k++, m++) {
-							p->data[k] = dat[m];
-						}
+						xs.push_back(j);
+						ys.push_back(i);
+						cols.push_back(curcol);
 						size += 12;
 						index += 12;
 					}
+				}
+			}
+			p->data = (char*)std::malloc(size);
+			for (int i = 0, ind = 0; i < size; ind++) {
+				char dat[12];
+				int* c = (int*)dat;
+				*c = xs[ind];
+				c++;
+				*c = ys[ind];
+				c++;
+				//writing color data now
+				Uint32* ct = (Uint32*)c;
+				*ct = cols[ind];
+				for (int j = 0; j < 12; j++, i++) {
+					p->data[i] = dat[j];
 				}
 			}
 			p->size = size;
@@ -407,16 +414,11 @@ TrList Gore::generatePixelTransforms(spxp& spritelist) {
 	}
 	return list;
 }
-//Handle frame switching elsewhere?
 void Gore::switchTranformFrames(SDL_Surface* surf, TrList& frames, TrList& begin) {
-	frames = frames->next;
-	if (frames == NULL) {
-		frames = begin;
-	}
 	//go through each frames data and change the surface
 	size_t datapos = 0;
 	for (int i = 0; i < frames->size; i+=12) {
-		int* p = (int*)&frames->data[datapos];
+		int* p = (int*)&frames->data[i];
 		int x, y;
 		Uint32 col;
 		x = *p;
@@ -425,7 +427,21 @@ void Gore::switchTranformFrames(SDL_Surface* surf, TrList& frames, TrList& begin
 		p++;
 		Uint32* d = (Uint32*)p;
 		col = *d;
-		SetPixelSurface(surf, &y, &x, &col);
-		datapos += (sizeof(int) * 2) + sizeof(Uint32);
+		SetPixelSurface(surf, y, x, col);
 	}
+	frames = frames->next;
+	if (frames == NULL) {
+		frames = begin;
+	}
+}
+SDL_Surface* Gore::initTransformSurf(spxp& head) {
+	SDL_Surface* surf = SDL_CreateRGBSurfaceWithFormat(0, head->current->w, head->current->h, 32, SDL_PIXELFORMAT_RGBA8888);
+	clearSurface(surf);
+	for (int i = 0; i < surf->h; i++) {
+		for (int j = 0; j < surf->w; j++) {
+			Uint32 col = GetPixelSurface(head->current, &i, &j);
+			SetPixelSurface(surf, &i, &j, &col);
+		}
+	}
+	return surf;
 }

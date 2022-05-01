@@ -75,6 +75,11 @@ int main() {
 	gore.deserilizeStruct(des, st, sizeof(BASE));
 	std::cout << a.x << std::endl;
 	bool* points = gore.createPoints(imgsurf);
+	spxp animlist = gore.loadSpriteList({ "enem1_1.png", "enem1_2.png", "enem1_3.png" }, { 30, 30, 30 }, {50, 50, 50}, SDL_PIXELFORMAT_RGBA8888, "AnimationTest/");
+	SDL_Surface* animsurf = gore.initTransformSurf(animlist);
+	TrList translist = gore.generatePixelTransforms(animlist);
+	TrList transbegin = translist;
+	double animtime = 0;
 	//just use default fullscreen SDL2 provides
 	//SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN);
 	while (!exitf) {
@@ -88,6 +93,7 @@ int main() {
 		SDL_SetRenderDrawColor(rend, 0, 0, 0, 0);
 		SDL_RenderClear(rend);
 		delta = gore.getDelta();
+		animtime += delta;
 		int fps = 1 / delta;
 		std::string temp = "Example - " + std::to_string(fps);
 		SDL_SetWindowTitle(window, temp.c_str());
@@ -148,6 +154,14 @@ int main() {
 		SDL_RenderCopy(rend, tex1, NULL, &erect);
 		SDL_Rect rrect = { player.x, player.y, 50, 50 };
 		SDL_RenderCopy(rend, texblum, NULL, &rrect);
+		if (animtime > 0.1) {
+			gore.switchTranformFrames(animsurf, translist, transbegin);
+			animtime = 0;
+		}
+		SDL_Rect anrect = { 400, 600, 30, 50 };
+		SDL_Texture* antex = SDL_CreateTextureFromSurface(rend, animsurf);
+		SDL_RenderCopy(rend, antex, NULL, &anrect);
+		SDL_DestroyTexture(antex);
 		//SDL_Rect prect = { 100, 100, 50, 100 };
 		//SDL_RenderCopy(rend, tex2, NULL, &prect);
 		//SDL_Rect enemy1rect = { 300, 300, 50, 100 };

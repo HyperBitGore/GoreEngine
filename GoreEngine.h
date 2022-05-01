@@ -62,7 +62,7 @@ public:
 	SDL_Surface* loadPNG(std::string name, SDL_PixelFormatEnum format, int w, int h);
 	SDL_Surface* LoadBMP(const char* file, SDL_PixelFormatEnum format);
 	texp& loadTextureList(std::vector<std::string> names, std::vector<unsigned int> widths, std::vector<unsigned int> heights, SDL_PixelFormatEnum format, SDL_Renderer* rend, std::string filepath = "NULL");
-	spxp& loadSpriteList(std::vector<std::string> names, std::vector<unsigned int> widths, std::vector<unsigned int> heights, SDL_PixelFormatEnum format, SDL_Renderer* rend, std::string filepath = "NULL");
+	spxp& loadSpriteList(std::vector<std::string> names, std::vector<unsigned int> widths, std::vector<unsigned int> heights, SDL_PixelFormatEnum format, std::string filepath = "NULL");
 	//Text functions
 	void mapTextTextures(int start, texp& out, texp& input);
 	void drawText(SDL_Renderer* rend, texp& texthead, std::string text, int x, int y, int w, int h);
@@ -79,4 +79,5 @@ public:
 	bool* createPoints(SDL_Surface* surf);
 	TrList generatePixelTransforms(spxp& spritelist);
 	void switchTranformFrames(SDL_Surface* surf, TrList& frames, TrList& begin);
+	SDL_Surface* initTransformSurf(spxp& head);
 };
