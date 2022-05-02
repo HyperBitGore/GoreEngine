@@ -154,7 +154,7 @@ int main() {
 		SDL_RenderCopy(rend, tex1, NULL, &erect);
 		SDL_Rect rrect = { player.x, player.y, 50, 50 };
 		SDL_RenderCopy(rend, texblum, NULL, &rrect);
-		if (animtime > 0.1) {
+		if (animtime > 0.4) {
 			gore.switchTranformFrames(animsurf, translist, transbegin);
 			animtime = 0;
 		}

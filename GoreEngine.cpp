@@ -55,9 +55,9 @@ void Gore::SetPixelSurface(SDL_Surface* surf, int y, int x, Uint32 pixel) {
 }
 
 Uint32 Gore::GetPixelSurface(SDL_Surface* surf, int* y, int* x) {
-	//SDL_LockSurface(surf);
+	SDL_LockSurface(surf);
 	Uint32* pixels = (Uint32*)surf->pixels;
-	//SDL_UnlockSurface(surf);
+	SDL_UnlockSurface(surf);
 	return pixels[*y * surf->w + *x];
 }
 void Gore::SetPixelSurfaceColorRGBA(SDL_Surface* surf, int* y, int* x, SDL_Color* color) {
@@ -365,74 +365,78 @@ bool* Gore::createPoints(SDL_Surface* surf) {
 TrList Gore::generatePixelTransforms(spxp& spritelist) {
 	TrList list = NULL;
 	spxp ptr = spritelist;
-	int n = 0;
-	SDL_Surface* prev = spritelist->current;
+	spxp bef = NULL;
+	//getting last frame so we can reset frame with first frame data
 	while (ptr != NULL) {
-		if (n > 0) {
-			PixelTransform* p = new PixelTransform;
-			size_t size = 0;
-			size_t index = 0;
-			std::vector<int>xs;
-			std::vector<int>ys;
-			std::vector<Uint32>cols;
-			//parse difference from previous frame
-			for (int i = 0; i < ptr->current->h; i++) {
-				for (int j = 0; j < ptr->current->w; j++) {
-					Uint32 curcol = GetPixelSurface(ptr->current, &i, &j);
-					Uint32 prevcol = GetPixelSurface(prev, &i, &j);
-					if (curcol != prevcol) {
-						xs.push_back(j);
-						ys.push_back(i);
-						cols.push_back(curcol);
-						size += 12;
-						index += 12;
-					}
+		bef = ptr;
+		ptr = ptr->next;
+	}
+	ptr = spritelist;
+	SDL_Surface* prev = bef->current;
+	//first transform needs to be differences between last frame and first
+	//second frame is basically being skipped in the data; color data seems to be wrong for 
+	while (ptr != NULL) {
+		PixelTransform* p = new PixelTransform;
+		size_t size = 0;
+		std::vector<int>xs;
+		std::vector<int>ys;
+		std::vector<Uint32>cols;
+		//parse difference from previous frame
+		for (int i = 0; i < ptr->current->h; i++) {
+			for (int j = 0; j < ptr->current->w; j++) {
+				Uint32 curcol = GetPixelSurface(ptr->current, &i, &j);
+				Uint32 prevcol = GetPixelSurface(prev, &i, &j);
+				if (curcol != prevcol) {
+					xs.push_back(j);
+					ys.push_back(i);
+					cols.push_back(prevcol);
+					size += 12;
 				}
 			}
-			p->data = (char*)std::malloc(size);
-			for (int i = 0, ind = 0; i < size; ind++) {
-				char dat[12];
-				int* c = (int*)dat;
-				*c = xs[ind];
-				c++;
-				*c = ys[ind];
-				c++;
-				//writing color data now
-				Uint32* ct = (Uint32*)c;
-				*ct = cols[ind];
-				for (int j = 0; j < 12; j++, i++) {
-					p->data[i] = dat[j];
-				}
-			}
-			p->size = size;
-			p->next = list;
-			list = p;
 		}
-		n++;
+		p->data = (char*)std::malloc(size);
+		for (int i = 0, ind = 0; i < size; ind++) {
+			char dat[12];
+			//write position data
+			Uint32* c = (Uint32*)dat;
+			*c = (Uint32)xs[ind];
+			c++;
+			*c = (Uint32)ys[ind];
+			c++;
+			//writing color data now
+			*c = cols[ind];
+			//writing to data block
+			for (int j = 0; j < 12; j++, i++) {
+				p->data[i] = dat[j];
+			}
+		}
+		p->size = size;
+		p->next = list;
+		list = p;
 		prev = ptr->current;
+		if (ptr->next == NULL) {
+			bef = ptr;
+		}
 		ptr = ptr->next;
 	}
 	return list;
 }
 void Gore::switchTranformFrames(SDL_Surface* surf, TrList& frames, TrList& begin) {
 	//go through each frames data and change the surface
-	size_t datapos = 0;
-	for (int i = 0; i < frames->size; i+=12) {
-		int* p = (int*)&frames->data[i];
-		int x, y;
-		Uint32 col;
-		x = *p;
-		p++;
-		y = *p;
-		p++;
-		Uint32* d = (Uint32*)p;
-		col = *d;
-		SetPixelSurface(surf, y, x, col);
-	}
-	frames = frames->next;
-	if (frames == NULL) {
-		frames = begin;
-	}
+		for (int i = 0; i < frames->size; i += 12) {
+			Uint32* p = (Uint32*)&frames->data[i];
+			Uint32 x, y, col;
+			x = *p;
+			p++;
+			y = *p;
+			p++;
+			col = *p;
+			SetPixelSurface(surf, y, x, col);
+		}
+		frames = frames->next;
+		if (frames == NULL) {
+			frames = begin;
+		}
 }
 SDL_Surface* Gore::initTransformSurf(spxp& head) {
 	SDL_Surface* surf = SDL_CreateRGBSurfaceWithFormat(0, head->current->w, head->current->h, 32, SDL_PIXELFORMAT_RGBA8888);
