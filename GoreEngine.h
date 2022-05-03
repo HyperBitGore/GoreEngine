@@ -25,13 +25,78 @@ struct Point {
 	int x;
 	int y;
 };
-//0 byte: x, 1 byte: y, next 4 bytes: color data; repeat through data;
+//4 byte: x, 4 byte: y, 4 byte: color data; repeat through data;
 struct PixelTransform {
 	char* data;
 	size_t size;
 	PixelTransform* next;
 };
 typedef PixelTransform* TrList;
+
+
+class Particle {
+public:
+	float x;
+	float y;
+	float trajx;
+	float trajy;
+	double animtime = 0;
+	SDL_Rect rect;
+	texp bhead;
+	Uint8 alpha = 255;
+public:
+	Particle(float cx, float cy, float ctrajx, float ctrajy, SDL_Rect crect, texp list) { x = cx; y = cy; trajx = ctrajx; trajy = ctrajy; rect = crect; head = list; bhead = head; };
+	texp head;
+	virtual void draw(SDL_Renderer* rend) {
+		SDL_SetTextureAlphaMod(head->current, alpha);
+		rect.x = x;
+		rect.y = y;
+		SDL_RenderCopy(rend, head->current, NULL, &rect);
+		SDL_SetTextureAlphaMod(head->current, 0);
+	}
+	virtual void update(double *delta) {
+		x += trajx;
+		y += trajy;
+		animtime += *delta;
+		if (animtime > 0.1) {
+			head = head->next;
+			alpha--;
+			if (alpha < 0) {
+				alpha = 255;
+			}
+			if (head == NULL) {
+				head = bhead;
+			}
+			animtime = 0;
+		}
+	}
+};
+
+class Emitter {
+private:
+	std::vector<Particle> particles;
+	Particle* p;
+public:
+	Emitter(Particle* par, double spawntime) { p = par; timetospawn = spawntime; }
+	double ctime = 0;
+	double timetospawn;
+	virtual void spawnParticle() {
+		particles.push_back(*p);
+	}
+	virtual void update(double *delta, SDL_Renderer* rend) {
+		ctime += *delta;
+		if (ctime > timetospawn) {
+			spawnParticle();
+			ctime = 0;
+		}
+		for (auto& i : particles) {
+			i.update(delta);
+			i.draw(rend);
+		}
+	}
+};
+
+
 
 class Gore {
 private:
@@ -80,4 +145,10 @@ public:
 	TrList generatePixelTransforms(spxp& spritelist);
 	void switchTranformFrames(SDL_Surface* surf, TrList& frames, TrList& begin);
 	SDL_Surface* initTransformSurf(spxp& head);
+	//Particle system
+
+	//misc
+	float trajX(float deg);
+	//Takes in degrees return radians
+	float trajY(float deg);
 };

@@ -292,7 +292,7 @@ SDL_Surface* Gore::fillCircle(int w, int h, SDL_Color startcolor) {
 SDL_Surface* Gore::createBloom(int w, int h, SDL_Color startcolor, float magnitude) {
 	int radius = (w >> 1);
 	SDL_Surface* surf = SDL_CreateRGBSurfaceWithFormat(0, w, h, 32, SDL_PIXELFORMAT_RGBA8888);
-	SDL_SetSurfaceBlendMode(surf, SDL_BLENDMODE_BLEND);
+	SDL_SetSurfaceBlendMode(surf, SDL_BLENDMODE_ADD);
 	Uint32 curcol = ConvertColorToUint32RGBA(startcolor, surf->format);
 	double area = M_PI * (std::pow((double)radius, 2));
 	for (int y = 0; y < h; y++) {
@@ -448,4 +448,18 @@ SDL_Surface* Gore::initTransformSurf(spxp& head) {
 		}
 	}
 	return surf;
+}
+
+//misc
+//Takes in degrees returns radians
+float Gore::trajX(float deg) {
+	deg = cos(deg * M_PI / 180);
+	deg = deg;
+	return deg;
+}
+//Takes in degrees return radians
+float Gore::trajY(float deg) {
+	deg = sin(deg * M_PI / 180);
+	deg = deg;
+	return deg;
 }

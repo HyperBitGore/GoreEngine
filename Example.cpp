@@ -1,6 +1,8 @@
 #include "GoreEngine.h"
 #undef main
-
+//https://stackoverflow.com/questions/2139637/hide-console-of-windows-application
+//Use this for no console window
+//#pragma comment(linker, "/SUBSYSTEM:windows /ENTRY:mainCRTStartup")
 struct Entity {
 	float x;
 	float y;
@@ -13,6 +15,33 @@ struct BASE {
 	int w;
 	int h;
 };
+
+class Fire : public Particle {
+	void draw(SDL_Renderer* rend) {
+		SDL_SetTextureColorMod(head->current, 235, 149, 52);
+		SDL_SetTextureAlphaMod(head->current, alpha);
+		SDL_RenderCopy(rend, head->current, NULL, &rect);
+		SDL_SetTextureAlphaMod(head->current, 0);
+		SDL_SetTextureColorMod(head->current, 0, 0, 0);
+	}
+};
+class FireEmitter : public Emitter {
+private:
+	std::vector<Fire> particles;
+	Fire p;
+public:
+	void spawnParticle() {
+		particles.push_back(p);
+	}
+	void update(double* delta) {
+		ctime += *delta;
+		if (ctime > timetospawn) {
+			spawnParticle();
+			ctime = 0;
+		}
+	}
+};
+
 
 Gore gore;
 
@@ -67,6 +96,7 @@ int main() {
 	keys = SDL_GetKeyboardState(NULL);
 	float ang = 90;
 	double delta;
+	//memory related stuff
 	BASE b = { 124, 0, 60, 120 };
 	char* st = (char*)&b;
 	gore.serilizeStruct(st, sizeof(BASE));
@@ -74,12 +104,23 @@ int main() {
 	char* des = (char*)&a;
 	gore.deserilizeStruct(des, st, sizeof(BASE));
 	std::cout << a.x << std::endl;
+	//animation/destructio system related
 	bool* points = gore.createPoints(imgsurf);
-	spxp animlist = gore.loadSpriteList({ "enem1_1.png", "enem1_2.png", "enem1_3.png" }, { 30, 30, 30 }, {50, 50, 50}, SDL_PIXELFORMAT_RGBA8888, "AnimationTest/");
+	spxp animlist = gore.loadSpriteList({ "enem1_1.png", "enem1_2.png", "enem1_3.png", "enem1_4.png"}, {30, 30, 30, 30}, {50, 50, 50, 50}, SDL_PIXELFORMAT_RGBA8888, "AnimationTest/");
 	SDL_Surface* animsurf = gore.initTransformSurf(animlist);
 	TrList translist = gore.generatePixelTransforms(animlist);
 	TrList transbegin = translist;
 	double animtime = 0;
+	//particle stuff
+	texp particelist1 = gore.loadTextureList({ "particle1.png", "particle2.png" }, { 5, 5 }, {5, 5}, SDL_PIXELFORMAT_RGBA8888, rend, "ParticleTest/");
+	texp ttp = particelist1;
+	while (ttp != NULL) {
+		SDL_BlendMode bp = SDL_BLENDMODE_BLEND;
+		SDL_GetTextureBlendMode(ttp->current, &bp);
+		ttp = ttp->next;
+	}
+	Particle fp(400, 600, gore.trajX(270), gore.trajY(270), {400, 600, 5, 5}, particelist1);
+	Emitter emit(&fp, 0.5);
 	//just use default fullscreen SDL2 provides
 	//SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN);
 	while (!exitf) {
@@ -162,6 +203,8 @@ int main() {
 		SDL_Texture* antex = SDL_CreateTextureFromSurface(rend, animsurf);
 		SDL_RenderCopy(rend, antex, NULL, &anrect);
 		SDL_DestroyTexture(antex);
+		emit.update(&delta, rend);
+
 		//SDL_Rect prect = { 100, 100, 50, 100 };
 		//SDL_RenderCopy(rend, tex2, NULL, &prect);
 		//SDL_Rect enemy1rect = { 300, 300, 50, 100 };
