@@ -1,6 +1,7 @@
 #pragma once
 #include <iostream>
 #include <fstream>
+#include <random>
 #include <SDL.h>
 #include "lodepng.h"
 
@@ -40,13 +41,18 @@ public:
 	float y;
 	float trajx;
 	float trajy;
+	int rangehigh;
+	int rangelow;
 	double animtime = 0;
+	double movetime = 0;
+	bool erase;
 	SDL_Rect rect;
 	texp bhead;
+	texp head;
 	Uint8 alpha = 255;
 public:
-	Particle(float cx, float cy, float ctrajx, float ctrajy, SDL_Rect crect, texp list) { x = cx; y = cy; trajx = ctrajx; trajy = ctrajy; rect = crect; head = list; bhead = head; };
-	texp head;
+	Particle() { rangehigh = 0; rangelow = 0; x = 0; y = 0; trajx = 0; trajy = 0; rect = { 0, 0, 0, 0 }; head = NULL; bhead = head; erase = false; }
+	Particle(float cx, float cy, int rangel, int rangeh, SDL_Rect crect, texp list) { rangehigh = rangeh; rangelow = rangel; x = cx; y = cy; trajx = 0; trajy = 0; rect = crect; head = list; bhead = head; erase = false; };
 	virtual void draw(SDL_Renderer* rend) {
 		SDL_SetTextureAlphaMod(head->current, alpha);
 		rect.x = x;
@@ -55,14 +61,19 @@ public:
 		SDL_SetTextureAlphaMod(head->current, 0);
 	}
 	virtual void update(double *delta) {
-		x += trajx;
-		y += trajy;
 		animtime += *delta;
+		movetime += *delta;
+		if (movetime > 0.05) {
+			x += trajx;
+			y += trajy;
+			movetime = 0;
+		}
 		if (animtime > 0.1) {
 			head = head->next;
-			alpha--;
-			if (alpha < 0) {
-				alpha = 255;
+			alpha-=5;
+			if (alpha <= 0) {
+				erase = true;
+				alpha = 0;
 			}
 			if (head == NULL) {
 				head = bhead;
@@ -71,32 +82,6 @@ public:
 		}
 	}
 };
-
-class Emitter {
-private:
-	std::vector<Particle> particles;
-	Particle* p;
-public:
-	Emitter(Particle* par, double spawntime) { p = par; timetospawn = spawntime; }
-	double ctime = 0;
-	double timetospawn;
-	virtual void spawnParticle() {
-		particles.push_back(*p);
-	}
-	virtual void update(double *delta, SDL_Renderer* rend) {
-		ctime += *delta;
-		if (ctime > timetospawn) {
-			spawnParticle();
-			ctime = 0;
-		}
-		for (auto& i : particles) {
-			i.update(delta);
-			i.draw(rend);
-		}
-	}
-};
-
-
 
 class Gore {
 private:
@@ -151,4 +136,38 @@ public:
 	float trajX(float deg);
 	//Takes in degrees return radians
 	float trajY(float deg);
+};
+
+
+class Emitter {
+private:
+	std::vector<Particle> particles;
+	Particle* p;
+public:
+	Emitter() { p = NULL; timetospawn = 0.1; }
+	Emitter(Particle* par, double spawntime) { p = par; timetospawn = spawntime; }
+	double ctime = 0;
+	double timetospawn;
+	virtual void spawnParticle() {
+		p->trajx = cos(double(p->rangelow + (std::rand() % (p->rangehigh - p->rangelow + 1))) * M_PI / 180.0);
+		p->trajy = sin(double(p->rangelow + (std::rand() % (p->rangehigh - p->rangelow + 1))) * M_PI / 180.0);
+		particles.push_back(*p);
+	}
+	virtual void update(double* delta, SDL_Renderer* rend) {
+		ctime += *delta;
+		if (ctime > timetospawn) {
+			spawnParticle();
+			ctime = 0;
+		}
+		for (int i = 0; i < particles.size();) {
+			particles[i].update(delta);
+			particles[i].draw(rend);
+			if (particles[i].erase) {
+				particles.erase(particles.begin() + i);
+			}
+			else {
+				i++;
+			}
+		}
+	}
 };

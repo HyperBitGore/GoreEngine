@@ -454,12 +454,10 @@ SDL_Surface* Gore::initTransformSurf(spxp& head) {
 //Takes in degrees returns radians
 float Gore::trajX(float deg) {
 	deg = cos(deg * M_PI / 180);
-	deg = deg;
 	return deg;
 }
 //Takes in degrees return radians
 float Gore::trajY(float deg) {
 	deg = sin(deg * M_PI / 180);
-	deg = deg;
 	return deg;
 }

@@ -16,10 +16,15 @@ struct BASE {
 	int h;
 };
 
+//can't use base particle class anymore because fire overrides it here, at least the draw function
 class Fire : public Particle {
+public:
+	Fire(float cx, float cy, int rangel, int rangeh, SDL_Rect crect, texp list) { rangehigh = rangeh; rangelow = rangel; x = cx; y = cy; trajx = 0; trajy = 0; rect = crect; head = list; bhead = head; erase = false; };
 	void draw(SDL_Renderer* rend) {
 		SDL_SetTextureColorMod(head->current, 235, 149, 52);
 		SDL_SetTextureAlphaMod(head->current, alpha);
+		rect.x = x;
+		rect.y = y;
 		SDL_RenderCopy(rend, head->current, NULL, &rect);
 		SDL_SetTextureAlphaMod(head->current, 0);
 		SDL_SetTextureColorMod(head->current, 0, 0, 0);
@@ -28,21 +33,75 @@ class Fire : public Particle {
 class FireEmitter : public Emitter {
 private:
 	std::vector<Fire> particles;
-	Fire p;
+	Fire* fep;
 public:
+	FireEmitter(Fire* par, double spawntime) { fep = par; timetospawn = spawntime; }
 	void spawnParticle() {
-		particles.push_back(p);
+		fep->trajx = cos(double(fep->rangelow + (std::rand() % (fep->rangehigh - fep->rangelow + 1))) * M_PI / 180.0);
+		fep->trajy = sin(double(fep->rangelow + (std::rand() % (fep->rangehigh - fep->rangelow + 1))) * M_PI / 180.0);
+		particles.push_back(*fep);
 	}
-	void update(double* delta) {
+	void update(double* delta, SDL_Renderer* rend) {
 		ctime += *delta;
 		if (ctime > timetospawn) {
 			spawnParticle();
 			ctime = 0;
 		}
+		for (int i = 0; i < particles.size();) {
+			particles[i].update(delta);
+			particles[i].draw(rend);
+			if (particles[i].erase) {
+				particles.erase(particles.begin() + i);
+			}
+			else {
+				i++;
+			}
+		}
 	}
 };
+class Water : public Particle {
+public:
+	Water(float cx, float cy, int rangel, int rangeh, SDL_Rect crect, texp list) { rangehigh = rangeh; rangelow = rangel; x = cx; y = cy; trajx = 0; trajy = 0; rect = crect; head = list; bhead = head; erase = false; };
+	void draw(SDL_Renderer* rend) {
+		SDL_SetTextureColorMod(head->current, 150, 85, 255);
+		SDL_SetTextureAlphaMod(head->current, alpha);
+		rect.x = x;
+		rect.y = y;
+		SDL_RenderCopy(rend, head->current, NULL, &rect);
+		SDL_SetTextureAlphaMod(head->current, 0);
+		SDL_SetTextureColorMod(head->current, 0, 0, 0);
+	}
 
-
+};
+class WaterEmitter : public Emitter {
+private:
+	std::vector<Water> particles;
+	Water* fep;
+public:
+	WaterEmitter(Water* par, double spawntime) { fep = par; timetospawn = spawntime; }
+	void spawnParticle() {
+		fep->trajx = cos(double(fep->rangelow + (std::rand() % (fep->rangehigh - fep->rangelow + 1))) * M_PI / 180.0);
+		fep->trajy = sin(double(fep->rangelow + (std::rand() % (fep->rangehigh - fep->rangelow + 1))) * M_PI / 180.0);
+		particles.push_back(*fep);
+	}
+	void update(double* delta, SDL_Renderer* rend) {
+		ctime += *delta;
+		if (ctime > timetospawn) {
+			spawnParticle();
+			ctime = 0;
+		}
+		for (int i = 0; i < particles.size();) {
+			particles[i].update(delta);
+			particles[i].draw(rend);
+			if (particles[i].erase) {
+				particles.erase(particles.begin() + i);
+			}
+			else {
+				i++;
+			}
+		}
+	}
+};
 Gore gore;
 
 //https://nintervik.github.io/2D-Particle-System/
@@ -119,8 +178,12 @@ int main() {
 		SDL_GetTextureBlendMode(ttp->current, &bp);
 		ttp = ttp->next;
 	}
-	Particle fp(400, 600, gore.trajX(270), gore.trajY(270), {400, 600, 5, 5}, particelist1);
-	Emitter emit(&fp, 0.5);
+	Particle fp(400, 600, 190, 360, {400, 600, 5, 5}, particelist1);
+	Emitter emit(&fp, 0.2);
+	Fire firep(300, 600, 25, 105, { 300, 600, 5, 5 }, particelist1);
+	FireEmitter fireemit(&firep, 0.5);
+	Water waterp(500, 650, 90, 180, { 500, 650, 5, 5 }, particelist1);
+	WaterEmitter watemit(&waterp, 0.2);
 	//just use default fullscreen SDL2 provides
 	//SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN);
 	while (!exitf) {
@@ -203,8 +266,10 @@ int main() {
 		SDL_Texture* antex = SDL_CreateTextureFromSurface(rend, animsurf);
 		SDL_RenderCopy(rend, antex, NULL, &anrect);
 		SDL_DestroyTexture(antex);
-		emit.update(&delta, rend);
-
+		//cant be used once you make a class that overrides base virtual function
+		//emit.update(&delta, rend);
+		fireemit.update(&delta, rend);
+		watemit.update(&delta, rend);
 		//SDL_Rect prect = { 100, 100, 50, 100 };
 		//SDL_RenderCopy(rend, tex2, NULL, &prect);
 		//SDL_Rect enemy1rect = { 300, 300, 50, 100 };
