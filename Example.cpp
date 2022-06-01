@@ -186,6 +186,12 @@ int main() {
 	WaterEmitter watemit(&waterp, 0.2);
 	//just use default fullscreen SDL2 provides
 	//SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN);
+	FollowBone bone1({Joint(300, 300), Joint(310, 310), Joint(310, 325), Joint(310, 335)}, 0.05, 25.0f);
+	FKLimb bone2({ FKBone(0.15, 100, 300, 600), FKBone(0.45, 100, 400, 550), FKBone(0.15, 50, 400, 600), FKBone(0.55, 50, 400, 600) });
+	float thangle = 0.15;
+	float secangle = 0.45;
+	double bone3time = 0;
+	double bonetime = 0;
 	while (!exitf) {
 		while (SDL_PollEvent(&e)) {
 			switch (e.type) {
@@ -198,14 +204,18 @@ int main() {
 		SDL_RenderClear(rend);
 		delta = gore.getDelta();
 		animtime += delta;
+		bonetime += delta;
+		bone3time += delta;
 		int fps = 1 / delta;
 		std::string temp = "Example - " + std::to_string(fps);
 		SDL_SetWindowTitle(window, temp.c_str());
 		if (keys[SDL_SCANCODE_RIGHT]) {
 			ang += 0.1;
+			thangle += 0.01;
 		}
 		else if (keys[SDL_SCANCODE_LEFT]) {
 			ang -= 0.1;
+			thangle -= 0.01;
 		}
 		if (ang > 360) {
 			ang = 0;
@@ -221,9 +231,11 @@ int main() {
 		}
 		if (keys[SDL_SCANCODE_A]) {
 			player.x -= 100 * delta;
+			secangle -= 0.01;
 		}
 		else if (keys[SDL_SCANCODE_D]) {
 			player.x += 100 * delta;
+			secangle += 0.01;
 		}
 		int mx, my;
 		//not the most efficent way to do this
@@ -278,7 +290,24 @@ int main() {
 		//SDL_RenderCopy(rend, etex5, NULL, &enemy5rect);
 		//gore.drawText(rend, alph, "hello world a", 0, 550, 25, 30);
 		SDL_DestroyTexture(tex);
+		if (SDL_GetMouseState(&mx, &my) & SDL_BUTTON(SDL_BUTTON_LEFT)) {
+			if (bonetime > 0.5) {
+				bone1.transformOverTime(mx, my);
+				bonetime = 0;
+			}
+		}
+		bone1.debugDraw(rend);
+		bone1.updateTransform(delta);
+		bone2.bones[0].angle = thangle;
+		bone2.bones[1].angle = secangle;
+		if (bone3time > 0.01) {
+			bone2.animate(2, 0.05, 0.75, 0.01);
+			bone3time = 0;
+		}
+		bone2.update();
+		bone2.debugDraw(rend);
 		SDL_RenderPresent(rend);
 	}
+	bone1.~FollowBone();
 	return 0;
 }
