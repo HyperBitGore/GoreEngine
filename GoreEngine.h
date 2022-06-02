@@ -4,6 +4,7 @@
 #include <random>
 #include <SDL.h>
 #include <array>
+#include <list>
 #include "lodepng.h"
 
 //Didn't want to include windows header to do resource exe inclusion so just follow along with this page if you want to do this. 
@@ -84,6 +85,21 @@ public:
 	}
 };
 
+//Custom linked list
+//this doesn't work rn
+template<typename PTROBJ>
+struct GoreList {
+	GoreList*& next;
+	PTROBJ* current;
+	void insert(GoreList*& head, PTROBJ* obj) {
+		GoreList g = new GoreList;
+		g->current = obj;
+		g->next = head;
+		head = g;
+	}
+};
+
+
 class Gore {
 private:
 	Uint64 LAST = 0;
@@ -137,6 +153,7 @@ public:
 	float trajX(float deg);
 	//Takes in degrees return radians
 	float trajY(float deg);
+	
 };
 
 
@@ -395,6 +412,9 @@ public:
 
 
 
+
+
+
 class Bounder {
 private:
 public:
@@ -407,102 +427,211 @@ public:
 		return!(ix < x || iy < y || ix >= (x + w) || iy >= (y + h));
 	}
 	bool contains(Bounder b) {
-		return (b.x >= x && b.x + b.w < x + w && b.y >= y && b.y + b.h < y + h);
+		return (b.x >= x && b.x + b.w <= x + w && b.y >= y && b.y + b.h <= y + h);
 	}
+	bool overlaps(Bounder b) {
+		return (x < b.x + b.w && x + w >= b.x && y < b.y + h && y + h >= b.y);
+	}
+};
+
+constexpr int M_DEPTH = 8;
+
+struct QuadItem {
+	Particle* p;
+	std::list<std::pair<QuadItem, Bounder>>::iterator it;
+	std::list<std::pair<QuadItem, Bounder>>* qt;
+};
+struct ContainerItem {
+	Particle p;
+	QuadItem* qtc;
+	std::list<ContainerItem>::iterator cti;
 };
 
 //convert to using template after done writing
 class QuadTree {
-private:
+protected:
 	Bounder area_bounds[4];
 	QuadTree* children[4] = {NULL, NULL, NULL, NULL};
 	//items on this node
-	std::vector<Particle> items;
-	int w, h;
-	float x, y;
+	std::list<std::pair<QuadItem, Bounder>> items;
+	Bounder area;
+	size_t depth;
 public:
-	QuadTree(float ix, float iy, int iw, int ih) {
-		w = iw; h = ih; x = ix; y = iy;
-		area_bounds[0] = Bounder(); area_bounds[1] = Bounder(); area_bounds[2] = Bounder(); area_bounds[3] = Bounder();
+	QuadTree(Bounder b, size_t d) {
+		resize(b);
+		depth = d;
+	}
+	std::list<QuadItem> search(Bounder b) {
+		std::list<QuadItem> li;
+		search(b, li);
+		return li;
+	}
+	void search(Bounder b, std::list<QuadItem>& li) {
+		for (auto& i : items) {
+			if (b.overlaps(i.second)) {
+				li.push_back(i.first);
+			}
+		}
+		for (int i = 0; i < 4; i++) {
+			if (children[i] != NULL) {
+				if (b.contains(area_bounds[i])) {
+					children[i]->itemsAdd(li);
+				}
+				else if(area_bounds[i].overlaps(b)){
+					children[i]->search(b, li);
+				}
+			}
+		}
+	}
+	void itemsAdd(std::list<QuadItem>& li) {
+		for (auto& i : items) {
+			li.push_back(i.first);
+		}
+		for (int i = 0; i < 4; i++) {
+			if (children[i] != NULL) {
+				children[i]->itemsAdd(li);
+			}
+		}
+	}
+	//container version
+	void search(Bounder b, std::list<ContainerItem>& li) {
+		for (auto& i : items) {
+			if (b.overlaps(i.second)) {
+				ContainerItem qt;
+				qt.p = *(i.first.p);
+				qt.qtc = &i.first;
+				li.push_back(qt);
+			}
+		}
+		for (int i = 0; i < 4; i++) {
+			if (children[i] != NULL) {
+				if (b.contains(area_bounds[i])) {
+					children[i]->itemsAdd(li);
+				}
+				else if (area_bounds[i].overlaps(b)) {
+					children[i]->search(b, li);
+				}
+			}
+		}
+	}
+	//container version
+	void itemsAdd(std::list<ContainerItem>& li) {
+		for (auto& i : items) {
+			ContainerItem qtp;
+			qtp.p = *i.first.p;
+			qtp.qtc = &i.first;
+			li.push_back(qtp);
+		}
+		for (int i = 0; i < 4; i++) {
+			if (children[i] != NULL) {
+				children[i]->itemsAdd(li);
+			}
+		}
+	}
+	//clears and changes tree area
+	void resize(Bounder b) {
+		clear();
+		area = b;
+		area_bounds[0] = Bounder(b.x, b.y, b.w / 2.0f, b.h / 2.0f); 
+		area_bounds[1] = Bounder(b.x + (b.w / 2.0f), b.y, b.w / 2.0f, b.h / 2.0f); 
+		area_bounds[2] = Bounder(b.x, b.y + (b.h / 2.0f), b.w / 2.0f, b.h / 2.0f); 
+		area_bounds[3] = Bounder(b.x + (b.w / 2.0f), b.y + (b.h / 2.0f), b.w / 2.0f, b.h / 2.0f);
+	}
+	//clears entire tree of data
+	void clear() {
+		items.clear();
+		for (int i = 0; i < 4; i++) {
+			if (children[i] != NULL) {
+				children[i]->clear();
+				delete children[i];
+				children[i] = NULL;
+			}
+		}
+	}
+	QuadItem* insert(Particle* p, Bounder b) {
+		for (int i = 0; i < 4; i++) {
+			if (area_bounds[i].contains(b)) {
+				if (depth + 1 <= M_DEPTH) {
+					if (children[i] == NULL) {
+						children[i] = new QuadTree(area_bounds[i], depth + 1);
+					}
+					return children[i]->insert(p, b);
+				}
+			}
+		}
+		std::list<std::pair<QuadItem, Bounder>>::iterator it = items.end();
+		if (it != items.begin()) {
+			--it;
+		}
+		QuadItem ip = { p, it, &items};
+		items.push_back({ ip, Bounder(p->x, p->y, 1, 1) });
+		//deal with initial garbage value from empty list
+		if (items.size() == 1) {
+			items.begin()->first.it = --(items.end());
+		}
+		return &items.back().first;
+	}
+};
+
+//https://www.youtube.com/watch?v=wXF3HIhnUOg
+class QuadContainer {
+protected:
+	std::list<ContainerItem> container;
+	QuadTree* root;
+public:
+	QuadContainer(QuadTree*& qt) { root = qt; }
+	void clear() {
+		container.clear();
+	}
+	// Convenience functions for ranged for loop
+	typename std::list<ContainerItem>::iterator begin()
+	{
+		return container.begin();
+	}
+
+	typename std::list<ContainerItem>::iterator end()
+	{
+		return container.end();
+	}
+
+	typename std::list<ContainerItem>::const_iterator cbegin()
+	{
+		return container.cbegin();
+	}
+
+	typename std::list<ContainerItem>::const_iterator cend()
+	{
+		return container.cend();
+	}
+	//root is null tf
+	void insert(Particle p, Bounder b) {
+		ContainerItem pb;
+		pb.p = p;
+		container.push_back(pb);
+		container.back().qtc = root->insert(&container.back().p, b);
+		container.back().cti = (--(container.end()));
+		if (container.size() == 1) {
+			container.back().cti = container.begin();
+		}
+		container.back().cti;
+	}
+	std::list<QuadItem> search(Bounder b) {
+		std::list<QuadItem> li;
+		root->search(b, li);
+		return li;
+	}
+	std::list<ContainerItem> searchContainer(Bounder b) {
+		std::list<ContainerItem> li;
+		root->search(b,li);
+		return li;
+	}
+	void remove(std::list<ContainerItem>::iterator& it){
+		//need place of actual data and not the searched list
+		//maybe design own linked list
+		it->qtc->qt->erase(it->qtc->it);
+		std::list<ContainerItem>::iterator ct = it->cti;
+		container.erase(ct);
 	}
 };
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-/*const size_t MAX_DEPTH = 8;
-
-
-
-//26:00; https://www.youtube.com/watch?v=ASAowY6yJII
-template <typename OBJECT>
-class QuadTree {
-private:
-	//depth
-	size_t depth = 0;
-	bounder b;
-	//child areas
-	std::array<bounder, 4> area_child{};
-	//potential children pointers
-	std::array<std::shared_ptr<QuadTree<OBJECT>>, 4> pot_child{};
-	//items that belong to quad
-	std::vector<std::pair<bounder, OBJECT>> m_items;
-public:
-	void clear() {
-		m_items.clear();
-		for (int i = 0; i < 4; i++) {
-			if (pot_child[i]) {
-				pot_child[i]->clear();
-			}
-			pot_child[i].reset();
-		}
-	}
-	size_t size() {
-		size_t count = m_items.size();
-		for (int i = 0; i < 4; i++) {
-			if (pot_child[i]) { count += pot_child[i]->size(); }
-		}
-		return count;
-	}
-
-	void resize(bounder& bin) {
-		clear();
-		b = bin;
-		int childw = b.w / 2;
-		int childh = b.h / 2;
-		area_child = { bounder(b.posx, b.posy, childw, childh), bounder(b.posx + childw, b.posy, childw, childh), bounder(b.posx, b.posy + childh, childw, childh), bounder(b.posx + childw, b.posy + childh, childw, childh) };
-	}
-	void insert(OBJECT& item, bounder& be) {
-		for (int i = 0; i < 4; i++) {
-			if (area_child[i].contains(be)) {
-				if (depth + 1 < MAX_DEPTH) {
-					
-					if (!pot_child[i]) {
-						pot_child[i] = std::make_shared<QuadTree<OBJECT>>(area_child[i], depth + 1);
-					}
-
-					pot_child[i]->insert(item, be);
-					return;
-				}
-			}
-		}
-		m_items.push_back({ be, item });
-	}
-
-	QuadTree(bounder inb, size_t indepth) {  
-		b = inb;
-		depth = indepth;
-		resize(inb);
-	};
-};*/
