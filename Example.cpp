@@ -19,7 +19,7 @@ struct BASE {
 //can't use base particle class anymore because fire overrides it here, at least the draw function
 class Fire : public Particle {
 public:
-	Fire(float cx, float cy, int rangel, int rangeh, SDL_Rect crect, texp list) { rangehigh = rangeh; rangelow = rangel; x = cx; y = cy; trajx = 0; trajy = 0; rect = crect; head = list; bhead = head; erase = false; };
+	Fire(float cx, float cy, int rangel, int rangeh, SDL_Rect crect, Gore::texp list) { rangehigh = rangeh; rangelow = rangel; x = cx; y = cy; trajx = 0; trajy = 0; rect = crect; head = list; bhead = head; erase = false; };
 	void draw(SDL_Renderer* rend) {
 		SDL_SetTextureColorMod(head->current, 235, 149, 52);
 		SDL_SetTextureAlphaMod(head->current, alpha);
@@ -81,7 +81,7 @@ public:
 };
 class Water : public Particle {
 public:
-	Water(float cx, float cy, int rangel, int rangeh, SDL_Rect crect, texp list) { rangehigh = rangeh; rangelow = rangel; x = cx; y = cy; trajx = 0; trajy = 0; rect = crect; head = list; bhead = head; erase = false; };
+	Water(float cx, float cy, int rangel, int rangeh, SDL_Rect crect, Gore::texp list) { rangehigh = rangeh; rangelow = rangel; x = cx; y = cy; trajx = 0; trajy = 0; rect = crect; head = list; bhead = head; erase = false; };
 	void draw(SDL_Renderer* rend) {
 		SDL_SetTextureColorMod(head->current, 150, 85, 255);
 		SDL_SetTextureAlphaMod(head->current, alpha);
@@ -122,7 +122,7 @@ public:
 		}
 	}
 };
-Gore gore;
+Gore::DeltaTimer dti;
 
 //https://nintervik.github.io/2D-Particle-System/
 //https://glusoft.com/tutorials/sdl2/creating-particle-system
@@ -137,11 +137,11 @@ int main() {
 	SDL_Surface* surface = SDL_CreateRGBSurfaceWithFormat(0, 800, 800, 32, SDL_PIXELFORMAT_RGBA8888);
 	bool exitf = false;
 	SDL_Event e;
-	gore.clearSurface(surface);
+	Gore::Engine::clearSurface(surface);
 	Entity player = { 200, 300, 16737380 };
 	SDL_Color yellow = { 255, 100, 100 };
-	texp elist = gore.loadTextureList({ "enemy1.png", "enemy2.png", "enemy3.png", "enemy4.png", "enemy5.png" }, { 50, 50, 50, 50, 50 }, { 100, 100, 100, 100, 100 }, SDL_PIXELFORMAT_RGBA8888, rend, "TexListExample/");
-	texp textlist = gore.loadTextureList({ "CK_StarGlowing_Z.png", "CK_StarGlowing_Y.png","CK_StarGlowing_X.png","CK_StarGlowing_W.png", "CK_StarGlowing_V.png"
+	Gore::texp elist = Gore::Engine::loadTextureList({ "enemy1.png", "enemy2.png", "enemy3.png", "enemy4.png", "enemy5.png" }, { 50, 50, 50, 50, 50 }, { 100, 100, 100, 100, 100 }, SDL_PIXELFORMAT_RGBA8888, rend, "TexListExample/");
+	Gore::texp textlist = Gore::Engine::loadTextureList({ "CK_StarGlowing_Z.png", "CK_StarGlowing_Y.png","CK_StarGlowing_X.png","CK_StarGlowing_W.png", "CK_StarGlowing_V.png"
 		, "CK_StarGlowing_U.png", "CK_StarGlowing_T.png", "CK_StarGlowing_S.png", "CK_StarGlowing_R.png", "CK_StarGlowing_Q.png", "CK_StarGlowing_P.png",
 		"CK_StarGlowing_O.png", "CK_StarGlowing_N.png", "CK_StarGlowing_M.png", "CK_StarGlowing_L.png", "CK_StarGlowing_K.png", "CK_StarGlowing_J.png", "CK_StarGlowing_I.png",
 		"CK_StarGlowing_H.png", "CK_StarGlowing_G.png", "CK_StarGlowing_F.png", "CK_StarGlowing_E.png","CK_StarGlowing_D.png", "CK_StarGlowing_C.png", "CK_StarGlowing_B.png",
@@ -149,13 +149,13 @@ int main() {
 		{ 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, }
 		, { 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, }, SDL_PIXELFORMAT_RGBA8888, rend,
 		"TextExample/");
-	texp alph;
-	gore.mapTextTextures(97, alph, textlist);
-	std::cout << gore.ConvertColorToUint32RGBA({ 255, 100, 100 }, surface->format) << std::endl;
-	SDL_Surface* pngsurf = gore.loadPNG("bplayer1.png", SDL_PIXELFORMAT_RGB888, 50, 100);
-	SDL_Surface* imgsurf = gore.LoadBMP("hatemalice.bmp", SDL_PIXELFORMAT_RGBA8888);
-	SDL_Texture* etex5 = gore.findTex(elist, "enemy5.png");
-	SDL_Surface* testblum = gore.createBloom(50, 50, { 255, 150, 100, 0 }, 1.6);
+	Gore::texp alph;
+	Gore::Engine::mapTextTextures(97, alph, textlist);
+	std::cout << Gore::Engine::ConvertColorToUint32RGBA({ 255, 100, 100 }, surface->format) << std::endl;
+	SDL_Surface* pngsurf = Gore::Engine::loadPNG("bplayer1.png", SDL_PIXELFORMAT_RGB888, 50, 100);
+	SDL_Surface* imgsurf = Gore::Engine::LoadBMP("hatemalice.bmp", SDL_PIXELFORMAT_RGBA8888);
+	SDL_Texture* etex5 = Gore::Engine::findTex(elist, "enemy5.png");
+	SDL_Surface* testblum = Gore::Engine::createBloom(50, 50, { 255, 150, 100, 0 }, 1.6);
 	SDL_Texture* texblum = SDL_CreateTextureFromSurface(rend, testblum);
 	SDL_SetTextureBlendMode(texblum, SDL_BLENDMODE_BLEND);
 	int x = 0;
@@ -167,7 +167,7 @@ int main() {
 			y++;
 			x = 0;
 		}
-		gore.SetPixelSurface(imgsurf, &y, &x, &col);
+		Gore::Engine::SetPixelSurface(imgsurf, &y, &x, &col);
 	}
 	SDL_Texture* tex2 = SDL_CreateTextureFromSurface(rend, pngsurf);
 	SDL_Texture* tex1 = SDL_CreateTextureFromSurface(rend, imgsurf);
@@ -177,22 +177,21 @@ int main() {
 	double delta;
 	//memory related stuff
 	BASE b = { 124, 0, 60, 120 };
-	char* st = (char*)&b;
-	gore.serilizeStruct(st, sizeof(BASE));
+	char* st = Gore::Engine::serilizeStruct((char*)&b, sizeof(BASE));
 	BASE a = {0, 0, 0, 0};
 	char* des = (char*)&a;
-	gore.deserilizeStruct(des, st, sizeof(BASE));
+	Gore::Engine::deserilizeStruct(des, st, sizeof(BASE));
 	std::cout << a.x << std::endl;
 	//animation/destructio system related
-	bool* points = gore.createPoints(imgsurf);
-	spxp animlist = gore.loadSpriteList({ "enem1_1.png", "enem1_2.png", "enem1_3.png", "enem1_4.png"}, {30, 30, 30, 30}, {50, 50, 50, 50}, SDL_PIXELFORMAT_RGBA8888, "AnimationTest/");
-	SDL_Surface* animsurf = gore.initTransformSurf(animlist);
-	TrList translist = gore.generatePixelTransforms(animlist);
-	TrList transbegin = translist;
+	bool* points = Gore::Engine::createPoints(imgsurf);
+	Gore::spxp animlist = Gore::Engine::loadSpriteList({ "enem1_1.png", "enem1_2.png", "enem1_3.png", "enem1_4.png"}, {30, 30, 30, 30}, {50, 50, 50, 50}, SDL_PIXELFORMAT_RGBA8888, "AnimationTest/");
+	SDL_Surface* animsurf = Gore::Engine::initTransformSurf(animlist);
+	Gore::TrList translist = Gore::Engine::generatePixelTransforms(animlist);
+	Gore::TrList transbegin = translist;
 	double animtime = 0;
 	//particle stuff
-	texp particelist1 = gore.loadTextureList({ "particle1.png", "particle2.png" }, { 5, 5 }, {5, 5}, SDL_PIXELFORMAT_RGBA8888, rend, "ParticleTest/");
-	texp ttp = particelist1;
+	Gore::texp particelist1 = Gore::Engine::loadTextureList({ "particle1.png", "particle2.png" }, { 5, 5 }, {5, 5}, SDL_PIXELFORMAT_RGBA8888, rend, "ParticleTest/");
+	Gore::texp ttp = particelist1;
 	while (ttp != NULL) {
 		SDL_BlendMode bp = SDL_BLENDMODE_BLEND;
 		SDL_GetTextureBlendMode(ttp->current, &bp);
@@ -207,8 +206,9 @@ int main() {
 	WaterEmitter watemit(&waterp, 0.2);
 	//just use default fullscreen SDL2 provides
 	//SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN);
-	FollowBone bone1({Joint(300, 300), Joint(310, 310), Joint(310, 325), Joint(310, 335)}, 0.05, 25.0f);
-	FKLimb bone2({ FKBone(0.15, 100, 300, 600), FKBone(0.45, 100, 400, 550), FKBone(0.15, 50, 400, 600), FKBone(0.55, 50, 400, 600) });
+	Gore::FollowBone bone1({ Gore::Joint(300, 300), Gore::Joint(310, 310), Gore::Joint(310, 325), Gore::Joint(310, 335)}, 0.05, 25.0f);
+	Gore::FKLimb bone2({ Gore::FKBone(0.15, 100, 300, 600), Gore::FKBone(0.45, 100, 400, 550), Gore::FKBone(0.15, 50, 400, 600), Gore::FKBone(0.55, 50, 400, 600) });
+
 	float thangle = 0.15;
 	float secangle = 0.45;
 	double bone3time = 0;
@@ -223,7 +223,7 @@ int main() {
 		}
 		SDL_SetRenderDrawColor(rend, 0, 0, 0, 0);
 		SDL_RenderClear(rend);
-		delta = gore.getDelta();
+		delta = dti.getDelta();
 		animtime += delta;
 		bonetime += delta;
 		bone3time += delta;
@@ -265,22 +265,22 @@ int main() {
 				if (!points[(my * (imgsurf->pitch / 8)) + mx]) {
 					points[(my * (imgsurf->pitch / 8)) + mx] = true;
 					Uint32 col = 0;
-					gore.SetPixelSurface(imgsurf, &my, &mx, &col);
+					Gore::Engine::SetPixelSurface(imgsurf, &my, &mx, &col);
 					SDL_DestroyTexture(tex1);
 					tex1 = SDL_CreateTextureFromSurface(rend, imgsurf);
 				}
 			}
 		}
-		gore.clearSurface(surface);
+		Gore::Engine::clearSurface(surface);
 		int yy = 500;
 		for (int i = 0; i < 800; i++) {
-			gore.SetPixelSurface(surface, &yy, &i, &col);
+			Gore::Engine::SetPixelSurface(surface, &yy, &i, &col);
 		}
 		yy = 750;
 		for (int i = 0; i < 500; i++) {
-			gore.SetPixelSurface(surface, &i, &yy, &col);
+			Gore::Engine::SetPixelSurface(surface, &i, &yy, &col);
 		}
-		Point p = gore.raycast2DPixel(surface, 200, 400, ang, 1);
+		Gore::Point p = Gore::Engine::raycast2DPixel(surface, 200, 400, ang, 1);
 		SDL_Texture* tex = SDL_CreateTextureFromSurface(rend, surface);
 		SDL_Rect rect = { 0, 0, surface->w, surface->h };
 		SDL_RenderCopy(rend, tex, NULL, &rect);
@@ -292,7 +292,7 @@ int main() {
 		SDL_Rect rrect = { player.x, player.y, 50, 50 };
 		SDL_RenderCopy(rend, texblum, NULL, &rrect);
 		if (animtime > 0.4) {
-			gore.switchTranformFrames(animsurf, translist, transbegin);
+			Gore::Engine::switchTranformFrames(animsurf, translist, transbegin);
 			animtime = 0;
 		}
 		SDL_Rect anrect = { 400, 600, 30, 50 };
@@ -306,10 +306,10 @@ int main() {
 		//SDL_Rect prect = { 100, 100, 50, 100 };
 		//SDL_RenderCopy(rend, tex2, NULL, &prect);
 		//SDL_Rect enemy1rect = { 300, 300, 50, 100 };
-		//SDL_RenderCopy(rend, gore.findTex(elist, "enemy1.png"), NULL, &enemy1rect);
+		//SDL_RenderCopy(rend, Gore::Engine::findTex(elist, "enemy1.png"), NULL, &enemy1rect);
 		//SDL_Rect enemy5rect = { 250, 400, 50, 100 };
 		//SDL_RenderCopy(rend, etex5, NULL, &enemy5rect);
-		//gore.drawText(rend, alph, "hello world a", 0, 550, 25, 30);
+		//Gore::Engine::drawText(rend, alph, "hello world a", 0, 550, 25, 30);
 		SDL_DestroyTexture(tex);
 		if (SDL_GetMouseState(&mx, &my) & SDL_BUTTON(SDL_BUTTON_LEFT)) {
 			if (bonetime > 0.5) {
