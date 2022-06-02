@@ -435,13 +435,17 @@ public:
 };
 
 constexpr int M_DEPTH = 8;
-
-struct QuadItem {
+class ContainerItem;
+class QuadItem {
+public:
 	Particle* p;
 	std::list<std::pair<QuadItem, Bounder>>::iterator it;
 	std::list<std::pair<QuadItem, Bounder>>* qt;
+	//value only used in quad container
+	std::list<ContainerItem>::iterator ct;
 };
-struct ContainerItem {
+class ContainerItem {
+public:
 	Particle p;
 	QuadItem* qtc;
 	std::list<ContainerItem>::iterator cti;
@@ -500,6 +504,7 @@ public:
 				ContainerItem qt;
 				qt.p = *(i.first.p);
 				qt.qtc = &i.first;
+				qt.cti = i.first.ct;
 				li.push_back(qt);
 			}
 		}
@@ -520,6 +525,7 @@ public:
 			ContainerItem qtp;
 			qtp.p = *i.first.p;
 			qtp.qtc = &i.first;
+			qtp.cti = i.first.ct;
 			li.push_back(qtp);
 		}
 		for (int i = 0; i < 4; i++) {
@@ -573,7 +579,7 @@ public:
 	}
 };
 
-//https://www.youtube.com/watch?v=wXF3HIhnUOg
+//https://www.youtube.com/watch?v=wXF3HIhnUOg 20:00
 class QuadContainer {
 protected:
 	std::list<ContainerItem> container;
@@ -614,6 +620,7 @@ public:
 			container.back().cti = container.begin();
 		}
 		container.back().cti;
+		container.back().qtc->ct = container.back().cti;
 	}
 	std::list<QuadItem> search(Bounder b) {
 		std::list<QuadItem> li;
@@ -629,8 +636,7 @@ public:
 		//need place of actual data and not the searched list
 		//maybe design own linked list
 		it->qtc->qt->erase(it->qtc->it);
-		std::list<ContainerItem>::iterator ct = it->cti;
-		container.erase(ct);
+		container.erase(it->cti);
 	}
 };
 

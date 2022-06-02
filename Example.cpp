@@ -36,7 +36,7 @@ private:
 	Fire* fep;
 	Bounder sc = Bounder(0.0f, 0.0f, 800, 800);
 	QuadTree* quad = new QuadTree(sc, 1);
-	QuadContainer qc = QuadContainer(quad);
+	QuadContainer* qc = new QuadContainer(quad);
 public:
 	FireEmitter(Fire* par, double spawntime) { fep = par; timetospawn = spawntime;}
 	void spawnParticle() {
@@ -44,7 +44,7 @@ public:
 		//fep->trajy = sin(double(fep->rangelow + (std::rand() % (fep->rangehigh - fep->rangelow + 1))) * M_PI / 180.0);
 		fep->trajx = 0;
 		fep->trajy = 0;
-		qc.insert(*fep, { fep->x, fep->y, 1, 1 });
+		qc->insert(*fep, { fep->x, fep->y, 1, 1 });
 		//particles.push_back(*fep);
 	}
 	void update(double* delta, SDL_Renderer* rend) {
@@ -56,26 +56,27 @@ public:
 		SDL_SetRenderDrawColor(rend, 255, 100, 155, 0);
 		//wont use fireparticle draw until template being used
 		std::list<ContainerItem>::iterator it;
-		for (it = qc.begin(); it != qc.end();) {
+		std::list<ContainerItem> contai = qc->searchContainer(sc);
+		for (it = contai.begin(); it != contai.end();) {
 			it->p.update(delta);
 			it->p.draw(rend);
 			if (it->p.erase) {
-				qc.remove(it);
+				std::list<ContainerItem>::iterator ct = it;
+				std::list<ContainerItem>::iterator out;
+				if (std::next(ct) != contai.end()) {
+					out = it;
+					std::next(out);
+				}
+				else {
+					out = contai.end();
+				}
+				qc->remove(it);
+				it = out;
 			}
 			else {
-				it++;
+				std::next(it);
 			}
 		}
-		/*for (int i = 0; i < particles.size();) {
-			particles[i].update(delta);
-			particles[i].draw(rend);
-			if (particles[i].erase) {
-				particles.erase(particles.begin() + i);
-			}
-			else {
-				i++;
-			}
-		}*/
 	}
 };
 class Water : public Particle {
@@ -200,6 +201,7 @@ int main() {
 	Particle fp(400, 600, 190, 360, {400, 600, 5, 5}, particelist1);
 	Emitter emit(&fp, 0.2);
 	Fire firep(200, 650, 25, 105, { 300, 600, 5, 5 }, particelist1);
+	firep.erase = false;
 	FireEmitter fireemit(&firep, 0.5);
 	Water waterp(500, 650, 90, 180, { 500, 650, 5, 5 }, particelist1);
 	WaterEmitter watemit(&waterp, 0.2);
@@ -300,7 +302,7 @@ int main() {
 		//cant be used once you make a class that overrides base virtual function
 		//emit.update(&delta, rend);
 		fireemit.update(&delta, rend);
-		//watemit.update(&delta, rend);
+		watemit.update(&delta, rend);
 		//SDL_Rect prect = { 100, 100, 50, 100 };
 		//SDL_RenderCopy(rend, tex2, NULL, &prect);
 		//SDL_Rect enemy1rect = { 300, 300, 50, 100 };
