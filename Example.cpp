@@ -224,6 +224,7 @@ int main() {
 	Gore::FollowBone bone1({ Gore::Joint(300, 300), Gore::Joint(310, 310), Gore::Joint(310, 325), Gore::Joint(310, 335)}, 0.05, 25.0f);
 	Gore::FKLimb bone2({ Gore::FKBone(0.15, 100, 300, 600), Gore::FKBone(0.45, 100, 400, 550), Gore::FKBone(0.15, 50, 400, 600), Gore::FKBone(0.55, 50, 400, 600) });
 	Gore::IKLimb bone3(Gore::IKBone(200, 600, 10, 0.25), 40);
+	Gore::IKLimb bone4(Gore::IKBone(300, 700, 25, 0.2), 4);
 	float thangle = 0.15;
 	float secangle = 0.45;
 	double bone3time = 0;
@@ -345,6 +346,8 @@ int main() {
 		SDL_GetMouseState(&mx, &my);
 		bone3.drag(mx, my);
 		bone3.debugDraw(rend);
+		bone4.reach(mx, my);
+		bone4.debugDraw(rend);
 		SDL_RenderPresent(rend);
 	}
 	bone1.~FollowBone();

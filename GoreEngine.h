@@ -340,8 +340,6 @@ namespace Gore {
 			}
 		}
 	};
-
-	//https://www.youtube.com/watch?v=7t54saw9I8k&list=PL7wAPgl1JVvUEb0dIygHzO4698tmcwLk9&index=46
 	//Inverse Kinematics bone
 	class IKBone {
 	private:
@@ -374,10 +372,15 @@ namespace Gore {
 	};
 
 	class IKLimb {
+	private:
+		float x;
+		float y;
 	public:
 		std::vector<IKBone> bones;
 		IKLimb(IKBone b, int num) {
 			bones.push_back(b);
+			x = b.x;
+			y = b.y;
 			for (int i = 0; i < num; i++) {
 				b.x += b.length;
 				bones.push_back(b);
@@ -399,12 +402,54 @@ namespace Gore {
 			}
 
 		}
+		IKLimb(std::vector<IKBone> bs) {
+			if (bs.size() > 0) {
+				x = bs[0].x;
+				y = bs[0].y;
+				bones = bs;
+				for (int i = 0; i < bones.size(); i++) {
+					if (i - 1 >= 0) {
+						bones[i].backward = &bones[i - 1];
+					}
+					else {
+						bones[i].backward = NULL;
+					}
+					if (i + 1 < bones.size()) {
+						bones[i].forward = &bones[i + 1];
+					}
+					else {
+						bones[i].forward = NULL;
+					}
+
+				}
+			}
+			else {
+				x = 0;
+				y = 0;
+			}
+
+		}
 		void drag(float ix, float iy) {
 			if (bones.size() > 0) {
 				bones[bones.size() - 1].drag(ix, iy);
 			}
 		}
-
+		void update() {
+			for (int i = 0; i < bones.size(); i++) {
+				if (bones[i].backward != NULL) {
+					bones[i].x = bones[i - 1].getEndX();
+					bones[i].y = bones[i - 1].getEndY();
+				}
+				else {
+					bones[i].x = x;
+					bones[i].y = y;
+				}
+			}
+		}
+		void reach(float ix, float iy) {
+			drag(ix, iy);
+			update();
+		}
 		void debugDraw(SDL_Renderer* rend) {
 			for (int i = 0; i < bones.size(); i++) {
 				SDL_SetRenderDrawColor(rend, 255, 100, 150, 0);
@@ -496,7 +541,6 @@ namespace Gore {
 			}
 		}
 	};
-
 
 	class QuadTree;
 	struct QuadItem {
