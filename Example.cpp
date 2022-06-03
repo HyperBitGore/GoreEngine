@@ -17,7 +17,7 @@ struct BASE {
 };
 
 //can't use base particle class anymore because fire overrides it here, at least the draw function
-class Fire : public Particle {
+class Fire : public Gore::Particle {
 public:
 	Fire(float cx, float cy, int rangel, int rangeh, SDL_Rect crect, Gore::texp list) { rangehigh = rangeh; rangelow = rangel; x = cx; y = cy; trajx = 0; trajy = 0; rect = crect; head = list; bhead = head; erase = false; };
 	void draw(SDL_Renderer* rend) {
@@ -30,21 +30,22 @@ public:
 		SDL_SetTextureColorMod(head->current, 0, 0, 0);
 	}
 };
-class FireEmitter : public Emitter {
+class FireEmitter : public Gore::Emitter {
 private:
 	//std::vector<Fire> particles;
 	Fire* fep;
 	Bounder sc = Bounder(0.0f, 0.0f, 800, 800);
-	QuadTree* quad = new QuadTree(sc, 1);
-	QuadContainer* qc = new QuadContainer(quad);
+	Gore::QuadTree quad = Gore::QuadTree(sc, 0);
+	//QuadTree* quad = new QuadTree(sc, 1);
+	//QuadContainer* qc = new QuadContainer(quad);
 public:
 	FireEmitter(Fire* par, double spawntime) { fep = par; timetospawn = spawntime;}
 	void spawnParticle() {
-		//fep->trajx = cos(double(fep->rangelow + (std::rand() % (fep->rangehigh - fep->rangelow + 1))) * M_PI / 180.0);
-		//fep->trajy = sin(double(fep->rangelow + (std::rand() % (fep->rangehigh - fep->rangelow + 1))) * M_PI / 180.0);
-		fep->trajx = 0;
-		fep->trajy = 0;
-		qc->insert(*fep, { fep->x, fep->y, 1, 1 });
+		fep->trajx = cos(double(fep->rangelow + (std::rand() % (fep->rangehigh - fep->rangelow + 1))) * M_PI / 180.0);
+		fep->trajy = sin(double(fep->rangelow + (std::rand() % (fep->rangehigh - fep->rangelow + 1))) * M_PI / 180.0);
+		//fep->trajx = 0;
+		//fep->trajy = 0;
+		quad.insert(*fep, { fep->x, fep->y, 1, 1 });
 		//particles.push_back(*fep);
 	}
 	void update(double* delta, SDL_Renderer* rend) {
@@ -55,22 +56,36 @@ public:
 		}
 		SDL_SetRenderDrawColor(rend, 255, 100, 155, 0);
 		//wont use fireparticle draw until template being used
-		std::list<ContainerItem>::iterator it;
-		std::list<ContainerItem> contai = qc->searchContainer(sc);
-		for (it = contai.begin(); it != contai.end();) {
-			it->p.update(delta);
-			it->p.draw(rend);
-			if (it->p.erase) {
-				std::list<ContainerItem>::iterator ct = it;
-				std::list<ContainerItem>::iterator out;
-				if (std::next(ct) != contai.end()) {
+		std::list<std::pair<Gore::QuadItem, Bounder>>::iterator it;
+		std::list<std::pair<Gore::QuadItem, Bounder>> items = quad.search(sc);
+		for (it = items.begin(); it != items.end();) {
+			it->first.p.update(delta);
+			it->second.x = it->first.p.x;
+			it->second.y = it->first.p.y;
+			it->first.p.draw(rend);
+			if (quad.move(it)) {
+				std::list<std::pair<Gore::QuadItem, Bounder>>::iterator ct = it;
+				std::list<std::pair<Gore::QuadItem, Bounder>>::iterator out;
+				if (std::next(ct) != items.end()) {
 					out = it;
 					std::next(out);
 				}
 				else {
-					out = contai.end();
+					break;
 				}
-				qc->remove(it);
+				it = out;
+			}
+			if (it->first.p.erase) {
+				std::list<std::pair<Gore::QuadItem, Bounder>>::iterator ct = it;
+				std::list<std::pair<Gore::QuadItem, Bounder>>::iterator out;
+				if (std::next(ct) != items.end()) {
+					out = it;
+					std::next(out);
+				}
+				else {
+					out = items.end();
+				}
+				quad.remove(it);
 				it = out;
 			}
 			else {
@@ -79,7 +94,7 @@ public:
 		}
 	}
 };
-class Water : public Particle {
+class Water : public Gore::Particle {
 public:
 	Water(float cx, float cy, int rangel, int rangeh, SDL_Rect crect, Gore::texp list) { rangehigh = rangeh; rangelow = rangel; x = cx; y = cy; trajx = 0; trajy = 0; rect = crect; head = list; bhead = head; erase = false; };
 	void draw(SDL_Renderer* rend) {
@@ -93,7 +108,7 @@ public:
 	}
 
 };
-class WaterEmitter : public Emitter {
+class WaterEmitter : public Gore::Emitter {
 private:
 	std::vector<Water> particles;
 	Water* fep;
@@ -197,8 +212,8 @@ int main() {
 		SDL_GetTextureBlendMode(ttp->current, &bp);
 		ttp = ttp->next;
 	}
-	Particle fp(400, 600, 190, 360, {400, 600, 5, 5}, particelist1);
-	Emitter emit(&fp, 0.2);
+	Gore::Particle fp(400, 600, 190, 360, {400, 600, 5, 5}, particelist1);
+	Gore::Emitter emit(&fp, 0.2);
 	Fire firep(200, 650, 25, 105, { 300, 600, 5, 5 }, particelist1);
 	firep.erase = false;
 	FireEmitter fireemit(&firep, 0.5);
@@ -208,7 +223,7 @@ int main() {
 	//SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN);
 	Gore::FollowBone bone1({ Gore::Joint(300, 300), Gore::Joint(310, 310), Gore::Joint(310, 325), Gore::Joint(310, 335)}, 0.05, 25.0f);
 	Gore::FKLimb bone2({ Gore::FKBone(0.15, 100, 300, 600), Gore::FKBone(0.45, 100, 400, 550), Gore::FKBone(0.15, 50, 400, 600), Gore::FKBone(0.55, 50, 400, 600) });
-
+	Gore::IKLimb bone3(Gore::IKBone(200, 600, 10, 0.25), 40);
 	float thangle = 0.15;
 	float secangle = 0.45;
 	double bone3time = 0;
@@ -302,7 +317,7 @@ int main() {
 		//cant be used once you make a class that overrides base virtual function
 		//emit.update(&delta, rend);
 		fireemit.update(&delta, rend);
-		watemit.update(&delta, rend);
+		//watemit.update(&delta, rend);
 		//SDL_Rect prect = { 100, 100, 50, 100 };
 		//SDL_RenderCopy(rend, tex2, NULL, &prect);
 		//SDL_Rect enemy1rect = { 300, 300, 50, 100 };
@@ -327,6 +342,9 @@ int main() {
 		}
 		bone2.update();
 		bone2.debugDraw(rend);
+		SDL_GetMouseState(&mx, &my);
+		bone3.drag(mx, my);
+		bone3.debugDraw(rend);
 		SDL_RenderPresent(rend);
 	}
 	bone1.~FollowBone();

@@ -12,6 +12,26 @@
 //or this
 //https://stackoverflow.com/questions/48326287/is-there-a-cross-platform-way-to-embed-resources-in-a-binary-application-written
 
+
+class Bounder {
+private:
+public:
+	float x, y;
+	int w, h;
+	Bounder() { x = 0; y = 0; w = 50; h = 50; }
+	Bounder(float ix, float iy, int iw, int ih) { x = ix; y = iy; w = iw; h = ih; }
+
+	bool contains(float ix, float iy) {
+		return!(ix < x || iy < y || ix >= (x + w) || iy >= (y + h));
+	}
+	bool contains(Bounder b) {
+		return (b.x >= x && b.x + b.w <= x + w && b.y >= y && b.y + b.h <= y + h);
+	}
+	bool overlaps(Bounder b) {
+		return (x < b.x + b.w && x + w >= b.x && y < b.y + h && y + h >= b.y);
+	}
+};
+
 namespace Gore {
 	//Custom linked list
 	//this doesn't work rn
@@ -321,322 +341,271 @@ namespace Gore {
 		}
 	};
 
-	//https://www.youtube.com/watch?v=sEKNoWyKUA0
+	//https://www.youtube.com/watch?v=7t54saw9I8k&list=PL7wAPgl1JVvUEb0dIygHzO4698tmcwLk9&index=46
 	//Inverse Kinematics bone
 	class IKBone {
 	private:
-
+		float angle;
 	public:
-
+		float length;
+		IKBone* backward = NULL;
+		IKBone* forward = NULL;
+		float x, y;
+		IKBone(float ix, float iy, float il, float ia) { x = ix; y = iy; length = il; angle = ia; }
+		float getEndX() {
+			return x + std::cosf(angle) * length;
+		}
+		float getEndY() {
+			return y + std::sinf(angle) * length;
+		}
+		void pointAt(float ix, float iy) {
+			float dx = ix - x;
+			float dy = iy - y;
+			angle = std::atan2f(dy, dx);
+		}
+		void drag(float ix, float iy) {
+			pointAt(ix, iy);
+			x = ix - std::cosf(angle) * length;
+			y = iy - std::sinf(angle) * length;
+			if (backward != NULL) {
+				backward->drag(x, y);
+			}
+		}
 	};
-}
 
-class Particle {
-public:
-	float x;
-	float y;
-	float trajx;
-	float trajy;
-	int rangehigh;
-	int rangelow;
-	double animtime = 0;
-	double movetime = 0;
-	bool erase;
-	SDL_Rect rect;
-	Gore::texp bhead;
-	Gore::texp head;
-	Uint8 alpha = 255;
-public:
-	Particle() { rangehigh = 0; rangelow = 0; x = 0; y = 0; trajx = 0; trajy = 0; rect = { 0, 0, 0, 0 }; head = NULL; bhead = head; erase = false; }
-	Particle(float cx, float cy, int rangel, int rangeh, SDL_Rect crect, Gore::texp list) { rangehigh = rangeh; rangelow = rangel; x = cx; y = cy; trajx = 0; trajy = 0; rect = crect; head = list; bhead = head; erase = false; };
-	virtual void draw(SDL_Renderer* rend) {
-		SDL_SetTextureAlphaMod(head->current, alpha);
-		rect.x = x;
-		rect.y = y;
-		SDL_RenderCopy(rend, head->current, NULL, &rect);
-		SDL_SetTextureAlphaMod(head->current, 0);
-	}
-	virtual void update(double* delta) {
-		animtime += *delta;
-		movetime += *delta;
-		if (movetime > 0.05) {
-			x += trajx;
-			y += trajy;
-			movetime = 0;
-		}
-		if (animtime > 0.1) {
-			head = head->next;
-			alpha -= 5;
-			if (alpha <= 0) {
-				erase = true;
-				alpha = 0;
+	class IKLimb {
+	public:
+		std::vector<IKBone> bones;
+		IKLimb(IKBone b, int num) {
+			bones.push_back(b);
+			for (int i = 0; i < num; i++) {
+				b.x += b.length;
+				bones.push_back(b);
 			}
-			if (head == NULL) {
-				head = bhead;
-			}
-			animtime = 0;
-		}
-	}
-};
-
-class Emitter {
-private:
-	std::vector<Particle> particles;
-	Particle* p;
-public:
-	Emitter() { p = NULL; timetospawn = 0.1; }
-	Emitter(Particle* par, double spawntime) { p = par; timetospawn = spawntime; }
-	double ctime = 0;
-	double timetospawn;
-	virtual void spawnParticle() {
-		p->trajx = cos(double(p->rangelow + (std::rand() % (p->rangehigh - p->rangelow + 1))) * M_PI / 180.0);
-		p->trajy = sin(double(p->rangelow + (std::rand() % (p->rangehigh - p->rangelow + 1))) * M_PI / 180.0);
-		particles.push_back(*p);
-	}
-	virtual void update(double* delta, SDL_Renderer* rend) {
-		ctime += *delta;
-		if (ctime > timetospawn) {
-			spawnParticle();
-			ctime = 0;
-		}
-		for (int i = 0; i < particles.size();) {
-			particles[i].update(delta);
-			particles[i].draw(rend);
-			if (particles[i].erase) {
-				particles.erase(particles.begin() + i);
-			}
-			else {
-				i++;
-			}
-		}
-	}
-};
-
-
-
-class Bounder {
-private:
-public:
-	float x, y;
-	int w, h;
-	Bounder() { x = 0; y = 0; w = 50; h = 50; }
-	Bounder(float ix, float iy, int iw, int ih) { x = ix; y = iy; w = iw; h = ih; }
-
-	bool contains(float ix, float iy){
-		return!(ix < x || iy < y || ix >= (x + w) || iy >= (y + h));
-	}
-	bool contains(Bounder b) {
-		return (b.x >= x && b.x + b.w <= x + w && b.y >= y && b.y + b.h <= y + h);
-	}
-	bool overlaps(Bounder b) {
-		return (x < b.x + b.w && x + w >= b.x && y < b.y + h && y + h >= b.y);
-	}
-};
-
-constexpr int M_DEPTH = 8;
-class ContainerItem;
-class QuadItem {
-public:
-	Particle* p;
-	std::list<std::pair<QuadItem, Bounder>>::iterator it;
-	std::list<std::pair<QuadItem, Bounder>>* qt;
-	//value only used in quad container
-	std::list<ContainerItem>::iterator ct;
-};
-class ContainerItem {
-public:
-	Particle p;
-	QuadItem* qtc;
-	std::list<ContainerItem>::iterator cti;
-};
-
-//convert to using template after done writing
-class QuadTree {
-protected:
-	Bounder area_bounds[4];
-	QuadTree* children[4] = {NULL, NULL, NULL, NULL};
-	//items on this node
-	std::list<std::pair<QuadItem, Bounder>> items;
-	Bounder area;
-	size_t depth;
-public:
-	QuadTree(Bounder b, size_t d) {
-		resize(b);
-		depth = d;
-	}
-	std::list<QuadItem> search(Bounder b) {
-		std::list<QuadItem> li;
-		search(b, li);
-		return li;
-	}
-	void search(Bounder b, std::list<QuadItem>& li) {
-		for (auto& i : items) {
-			if (b.overlaps(i.second)) {
-				li.push_back(i.first);
-			}
-		}
-		for (int i = 0; i < 4; i++) {
-			if (children[i] != NULL) {
-				if (b.contains(area_bounds[i])) {
-					children[i]->itemsAdd(li);
+			for (int i = 0; i < bones.size(); i++) {
+				if (i - 1 >= 0) {
+					bones[i].backward = &bones[i - 1];
 				}
-				else if(area_bounds[i].overlaps(b)){
-					children[i]->search(b, li);
+				else {
+					bones[i].backward = NULL;
+				}
+				if (i + 1 < bones.size()) {
+					bones[i].forward = &bones[i + 1];
+				}
+				else {
+					bones[i].forward = NULL;
+				}
+
+			}
+
+		}
+		void drag(float ix, float iy) {
+			if (bones.size() > 0) {
+				bones[bones.size() - 1].drag(ix, iy);
+			}
+		}
+
+		void debugDraw(SDL_Renderer* rend) {
+			for (int i = 0; i < bones.size(); i++) {
+				SDL_SetRenderDrawColor(rend, 255, 100, 150, 0);
+				SDL_RenderDrawLineF(rend, bones[i].x, bones[i].y, bones[i].getEndX(), bones[i].getEndY());
+				SDL_SetRenderDrawColor(rend, 255, 0, 0, 0);
+				SDL_Rect rect = { bones[i].x, bones[i].y, 5, 5 };
+				SDL_RenderFillRect(rend, &rect);
+			}
+		}
+	};
+
+	class Particle {
+	public:
+		float x;
+		float y;
+		float trajx;
+		float trajy;
+		int rangehigh;
+		int rangelow;
+		double animtime = 0;
+		double movetime = 0;
+		bool erase;
+		SDL_Rect rect;
+		Gore::texp bhead;
+		Gore::texp head;
+		Uint8 alpha = 255;
+	public:
+		Particle() { rangehigh = 0; rangelow = 0; x = 0; y = 0; trajx = 0; trajy = 0; rect = { 0, 0, 0, 0 }; head = NULL; bhead = head; erase = false; }
+		Particle(float cx, float cy, int rangel, int rangeh, SDL_Rect crect, Gore::texp list) { rangehigh = rangeh; rangelow = rangel; x = cx; y = cy; trajx = 0; trajy = 0; rect = crect; head = list; bhead = head; erase = false; };
+		virtual void draw(SDL_Renderer* rend) {
+			SDL_SetTextureAlphaMod(head->current, alpha);
+			rect.x = x;
+			rect.y = y;
+			SDL_RenderCopy(rend, head->current, NULL, &rect);
+			SDL_SetTextureAlphaMod(head->current, 0);
+		}
+		virtual void update(double* delta) {
+			animtime += *delta;
+			movetime += *delta;
+			if (movetime > 0.05) {
+				x += trajx;
+				y += trajy;
+				movetime = 0;
+			}
+			if (animtime > 0.1) {
+				head = head->next;
+				alpha -= 5;
+				if (alpha <= 0) {
+					erase = true;
+					alpha = 0;
+				}
+				if (head == NULL) {
+					head = bhead;
+				}
+				animtime = 0;
+			}
+		}
+	};
+
+	class Emitter {
+	private:
+		std::vector<Particle> particles;
+		Particle* p;
+	public:
+		Emitter() { p = NULL; timetospawn = 0.1; }
+		Emitter(Particle* par, double spawntime) { p = par; timetospawn = spawntime; }
+		double ctime = 0;
+		double timetospawn;
+		virtual void spawnParticle() {
+			p->trajx = cos(double(p->rangelow + (std::rand() % (p->rangehigh - p->rangelow + 1))) * M_PI / 180.0);
+			p->trajy = sin(double(p->rangelow + (std::rand() % (p->rangehigh - p->rangelow + 1))) * M_PI / 180.0);
+			particles.push_back(*p);
+		}
+		virtual void update(double* delta, SDL_Renderer* rend) {
+			ctime += *delta;
+			if (ctime > timetospawn) {
+				spawnParticle();
+				ctime = 0;
+			}
+			for (int i = 0; i < particles.size();) {
+				particles[i].update(delta);
+				particles[i].draw(rend);
+				if (particles[i].erase) {
+					particles.erase(particles.begin() + i);
+				}
+				else {
+					i++;
 				}
 			}
 		}
-	}
-	void itemsAdd(std::list<QuadItem>& li) {
-		for (auto& i : items) {
-			li.push_back(i.first);
+	};
+
+
+	class QuadTree;
+	struct QuadItem {
+		Particle p;
+		QuadTree* qt;
+		std::list<std::pair<QuadItem, Bounder>>::iterator pos;
+	};
+	constexpr int M_DEPTH = 8;
+	class QuadTree {
+	protected:
+		Bounder area_bounds[4];
+		QuadTree* children[4] = { NULL, NULL, NULL, NULL };
+		//items on this node
+		std::list<std::pair<QuadItem, Bounder>> items;
+		Bounder area;
+		size_t depth;
+	public:
+		QuadTree(Bounder b, size_t d) {
+			resize(b);
+			depth = d;
 		}
-		for (int i = 0; i < 4; i++) {
-			if (children[i] != NULL) {
-				children[i]->itemsAdd(li);
-			}
+		std::list<std::pair<QuadItem, Bounder>> search(Bounder b) {
+			std::list<std::pair<QuadItem, Bounder>> li;
+			search(b, li);
+			return li;
 		}
-	}
-	//container version
-	void search(Bounder b, std::list<ContainerItem>& li) {
-		for (auto& i : items) {
-			if (b.overlaps(i.second)) {
-				ContainerItem qt;
-				qt.p = *(i.first.p);
-				qt.qtc = &i.first;
-				qt.cti = i.first.ct;
-				li.push_back(qt);
-			}
-		}
-		for (int i = 0; i < 4; i++) {
-			if (children[i] != NULL) {
-				if (b.contains(area_bounds[i])) {
-					children[i]->itemsAdd(li);
+		void search(Bounder b, std::list<std::pair<QuadItem, Bounder>>& li) {
+			for (auto& i : items) {
+				if (b.overlaps(i.second)) {
+					li.push_back(i);
 				}
-				else if (area_bounds[i].overlaps(b)) {
-					children[i]->search(b, li);
-				}
 			}
-		}
-	}
-	//container version
-	void itemsAdd(std::list<ContainerItem>& li) {
-		for (auto& i : items) {
-			ContainerItem qtp;
-			qtp.p = *i.first.p;
-			qtp.qtc = &i.first;
-			qtp.cti = i.first.ct;
-			li.push_back(qtp);
-		}
-		for (int i = 0; i < 4; i++) {
-			if (children[i] != NULL) {
-				children[i]->itemsAdd(li);
-			}
-		}
-	}
-	//clears and changes tree area
-	void resize(Bounder b) {
-		clear();
-		area = b;
-		area_bounds[0] = Bounder(b.x, b.y, b.w / 2.0f, b.h / 2.0f); 
-		area_bounds[1] = Bounder(b.x + (b.w / 2.0f), b.y, b.w / 2.0f, b.h / 2.0f); 
-		area_bounds[2] = Bounder(b.x, b.y + (b.h / 2.0f), b.w / 2.0f, b.h / 2.0f); 
-		area_bounds[3] = Bounder(b.x + (b.w / 2.0f), b.y + (b.h / 2.0f), b.w / 2.0f, b.h / 2.0f);
-	}
-	//clears entire tree of data
-	void clear() {
-		items.clear();
-		for (int i = 0; i < 4; i++) {
-			if (children[i] != NULL) {
-				children[i]->clear();
-				delete children[i];
-				children[i] = NULL;
-			}
-		}
-	}
-	QuadItem* insert(Particle* p, Bounder b) {
-		for (int i = 0; i < 4; i++) {
-			if (area_bounds[i].contains(b)) {
-				if (depth + 1 <= M_DEPTH) {
-					if (children[i] == NULL) {
-						children[i] = new QuadTree(area_bounds[i], depth + 1);
+			for (int i = 0; i < 4; i++) {
+				if (children[i] != NULL) {
+					if (b.contains(area_bounds[i])) {
+						children[i]->itemsAdd(li);
 					}
-					return children[i]->insert(p, b);
+					else if (area_bounds[i].overlaps(b)) {
+						children[i]->search(b, li);
+					}
 				}
 			}
 		}
-		std::list<std::pair<QuadItem, Bounder>>::iterator it = items.end();
-		if (it != items.begin()) {
-			--it;
+		void itemsAdd(std::list<std::pair<QuadItem, Bounder>>& li) {
+			for (auto& i : items) {
+				li.push_back(i);
+			}
+			for (int i = 0; i < 4; i++) {
+				if (children[i] != NULL) {
+					children[i]->itemsAdd(li);
+				}
+			}
 		}
-		QuadItem ip = { p, it, &items};
-		items.push_back({ ip, Bounder(p->x, p->y, 1, 1) });
-		//deal with initial garbage value from empty list
-		if (items.size() == 1) {
-			items.begin()->first.it = --(items.end());
+		//clears and changes tree area
+		void resize(Bounder b) {
+			clear();
+			area = b;
+			area_bounds[0] = Bounder(b.x, b.y, b.w / 2.0f, b.h / 2.0f);
+			area_bounds[1] = Bounder(b.x + (b.w / 2.0f), b.y, b.w / 2.0f, b.h / 2.0f);
+			area_bounds[2] = Bounder(b.x, b.y + (b.h / 2.0f), b.w / 2.0f, b.h / 2.0f);
+			area_bounds[3] = Bounder(b.x + (b.w / 2.0f), b.y + (b.h / 2.0f), b.w / 2.0f, b.h / 2.0f);
 		}
-		return &items.back().first;
-	}
-};
-
-//https://www.youtube.com/watch?v=wXF3HIhnUOg 20:00
-class QuadContainer {
-protected:
-	std::list<ContainerItem> container;
-	QuadTree* root;
-public:
-	QuadContainer(QuadTree*& qt) { root = qt; }
-	void clear() {
-		container.clear();
-	}
-	// Convenience functions for ranged for loop
-	typename std::list<ContainerItem>::iterator begin()
-	{
-		return container.begin();
-	}
-
-	typename std::list<ContainerItem>::iterator end()
-	{
-		return container.end();
-	}
-
-	typename std::list<ContainerItem>::const_iterator cbegin()
-	{
-		return container.cbegin();
-	}
-
-	typename std::list<ContainerItem>::const_iterator cend()
-	{
-		return container.cend();
-	}
-	//root is null tf
-	void insert(Particle p, Bounder b) {
-		ContainerItem pb;
-		pb.p = p;
-		container.push_back(pb);
-		container.back().qtc = root->insert(&container.back().p, b);
-		container.back().cti = (--(container.end()));
-		if (container.size() == 1) {
-			container.back().cti = container.begin();
+		//clears entire tree of data
+		void clear() {
+			items.clear();
+			for (int i = 0; i < 4; i++) {
+				if (children[i] != NULL) {
+					children[i]->clear();
+					delete children[i];
+					children[i] = NULL;
+				}
+			}
 		}
-		container.back().cti;
-		container.back().qtc->ct = container.back().cti;
-	}
-	std::list<QuadItem> search(Bounder b) {
-		std::list<QuadItem> li;
-		root->search(b, li);
-		return li;
-	}
-	std::list<ContainerItem> searchContainer(Bounder b) {
-		std::list<ContainerItem> li;
-		root->search(b,li);
-		return li;
-	}
-	void remove(std::list<ContainerItem>::iterator& it){
-		//need place of actual data and not the searched list
-		//maybe design own linked list
-		it->qtc->qt->erase(it->qtc->it);
-		container.erase(it->cti);
-	}
-};
+		void insert(Particle p, Bounder b) {
+			for (int i = 0; i < 4; i++) {
+				if (area_bounds[i].contains(b)) {
+					if (depth + 1 <= M_DEPTH) {
+						if (children[i] == NULL) {
+							children[i] = new QuadTree(area_bounds[i], depth + 1);
+						}
+						children[i]->insert(p, b);
+						return;
+					}
+				}
+			}
+			std::list<std::pair<QuadItem, Bounder>>::iterator it = items.end();
+			if (it != items.begin()) {
+				--it;
+			}
+			QuadItem ip = {p, this, it };
+			items.push_back({ ip, Bounder(p.x, p.y, 1, 1) });
+			//deal with initial garbage value from empty list
+			if (items.size() == 1) {
+				items.begin()->first.pos = --(items.end());
+			}
+		}
+		void remove(std::list<std::pair<QuadItem, Bounder>>::iterator it) {
+			it->first.qt->items.erase(it->first.pos);
+		}
+		bool move(std::list<std::pair<QuadItem, Bounder>>::iterator it) {
+			if (!it->first.qt->area.contains(it->second)) {
+				Particle tp = it->first.p;
+				Bounder tb = it->second;
+				remove(it);
+				this->insert(tp, tb);
+				return true;
+			}
+			return false;
+		}
+	};
 
-
+}
