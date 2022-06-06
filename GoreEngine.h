@@ -667,24 +667,19 @@ namespace Gore {
 				}
 			}
 			typename std::list<QuadStore<TP>>::iterator it = items.end();
-			if (it != items.begin()) {
-				--it;
-			}
 			QuadItem<TP> ip = {p, this, it };
 			QuadStore<TP> out = { ip, b };
 			items.push_back(out);
-			//deal with initial garbage value from empty list
-			if (items.size() == 1) {
-				items.begin()->item.pos = --(items.end());
-			}
+			//have to set the actual pos value after because it doesn't exist otherwise
+			items.back().item.pos = --items.end();
 		}
-		void remove(typename std::list<ReturnItem<TP>>::iterator it) {
+		void remove(typename std::list<ReturnItem<TP>>::iterator& it) {
 			it->item.qt->items.erase(it->item.pos);
 		}
 		bool move(typename std::list<ReturnItem<TP>>::iterator it) {
-			if (!it->item.qt->area.contains(*(it->b))) {
+			if (!it->item.qt->area.contains(it->item.pos->b)) {
 				TP tp = it->item.p;
-				Bounder tb = *(it->b);
+				Bounder tb = it->item.pos->b;
 				remove(it);
 				insert(tp, tb);
 				return true;

@@ -76,39 +76,22 @@ public:
 		SDL_SetRenderDrawColor(rend, 255, 100, 155, 0);
 		std::list<Gore::ReturnItem<Fire>>::iterator it;
 		std::list<Gore::ReturnItem<Fire>> items = quad->search(sc);
-		//std::cout << quad->retsize() << "\n";
-		//only editing the copy of the particle we recieve from search
+		//recieve list of return items which contain pointers to tree item values
 		for (it = items.begin(); it != items.end();) {
-			//std::cout << it->first.p.animtime << "\n";
 			it->item.p.update(delta);
 			it->item.p.draw(rend);
+			it->item.pos->b.x = it->item.p.x;
+			it->item.pos->b.y = it->item.p.y;
 			if (quad->move(it)) {
-				std::list<Gore::ReturnItem<Fire>>::iterator ct = it;
-				std::list<Gore::ReturnItem<Fire>>::iterator out;
-				if (ct++ != items.end()) {
-					out = it;
-					out++;
-				}
-				else {
+				it = items.erase(it);
+				//do this to avoid crash from trying to erase end iterator
+				if (it == items.end()) {
 					break;
 				}
-				it = out;
 			}
 			if (it->item.p.erase) {
-				std::list<Gore::ReturnItem<Fire>>::iterator ct = it;
-				std::list<Gore::ReturnItem<Fire>>::iterator out;
-				if (ct++ != items.end()) {
-					out = it;
-					out++;
-				}
-				else {
-					out = items.begin();
-				}
 				quad->remove(it);
-				if (out == items.begin()) {
-					break;
-				}
-				it = out;
+				it = items.erase(it);
 			}
 			else {
 				it++;
