@@ -13,24 +13,6 @@
 //https://stackoverflow.com/questions/48326287/is-there-a-cross-platform-way-to-embed-resources-in-a-binary-application-written
 
 
-class Bounder {
-private:
-public:
-	float x, y;
-	int w, h;
-	Bounder() { x = 0; y = 0; w = 50; h = 50; }
-	Bounder(float ix, float iy, int iw, int ih) { x = ix; y = iy; w = iw; h = ih; }
-
-	bool contains(float ix, float iy) {
-		return!(ix < x || iy < y || ix >= (x + w) || iy >= (y + h));
-	}
-	bool contains(Bounder b) {
-		return (b.x >= x && b.x + b.w <= x + w && b.y >= y && b.y + b.h <= y + h);
-	}
-	bool overlaps(Bounder b) {
-		return (x < b.x + b.w && x + w >= b.x && y < b.y + h && y + h >= b.y);
-	}
-};
 
 namespace Gore {
 	//Custom linked list
@@ -542,19 +524,61 @@ namespace Gore {
 		}
 	};
 
-	class QuadTree;
-	struct QuadItem {
-		Particle p;
-		QuadTree* qt;
-		std::list<std::pair<QuadItem, Bounder>>::iterator pos;
+	class Bounder {
+	private:
+	public:
+		float x, y;
+		int w, h;
+		Bounder() { x = 0; y = 0; w = 50; h = 50; }
+		Bounder(float ix, float iy, int iw, int ih) { x = ix; y = iy; w = iw; h = ih; }
+
+		bool contains(float ix, float iy) {
+			return!(ix < x || iy < y || ix >= (x + w) || iy >= (y + h));
+		}
+		bool contains(Bounder b) {
+			return (b.x >= x && b.x + b.w < x + w && b.y >= y && b.y + b.h < y + h);
+		}
+		bool overlaps(Bounder b) {
+			bool bt = (x < b.x + b.w && x + w >= b.x && y < b.y + b.h && y + h >= b.y);
+			return bt;
+		}
 	};
+
+
+	template<class TI>
+	class QuadTree;
+	
+	template<typename TO>
+	struct QuadStore;
+
+
+	template<class T>
+	class QuadItem {
+	public:
+		T p;
+		QuadTree<T>* qt;
+		typename std::list<QuadStore<T>>::iterator pos;
+	};
+	template<typename TK>
+	struct QuadStore {
+		QuadItem<TK> item;
+		Bounder b;
+	};
+
+	template<typename TE>
+	struct ReturnItem {
+		QuadItem<TE>& item;
+		Bounder* b;
+	};
+
 	constexpr int M_DEPTH = 8;
+	template<class TP>
 	class QuadTree {
 	protected:
 		Bounder area_bounds[4];
-		QuadTree* children[4] = { NULL, NULL, NULL, NULL };
+		QuadTree<TP>* children[4] = { NULL, NULL, NULL, NULL };
 		//items on this node
-		std::list<std::pair<QuadItem, Bounder>> items;
+		std::list<QuadStore<TP>> items;
 		Bounder area;
 		size_t depth;
 	public:
@@ -562,15 +586,16 @@ namespace Gore {
 			resize(b);
 			depth = d;
 		}
-		std::list<std::pair<QuadItem, Bounder>> search(Bounder b) {
-			std::list<std::pair<QuadItem, Bounder>> li;
+		std::list<ReturnItem<TP>> search(Bounder b) {
+			std::list<ReturnItem<TP>> li;
 			search(b, li);
 			return li;
 		}
-		void search(Bounder b, std::list<std::pair<QuadItem, Bounder>>& li) {
+		void search(Bounder b, std::list<ReturnItem<TP>>& li) {
 			for (auto& i : items) {
-				if (b.overlaps(i.second)) {
-					li.push_back(i);
+				if (b.overlaps(i.b)) {
+					ReturnItem<TP> p = { i.item, &i.b };
+					li.push_back(p);
 				}
 			}
 			for (int i = 0; i < 4; i++) {
@@ -584,9 +609,10 @@ namespace Gore {
 				}
 			}
 		}
-		void itemsAdd(std::list<std::pair<QuadItem, Bounder>>& li) {
+		void itemsAdd(std::list<ReturnItem<TP>>& li) {
 			for (auto& i : items) {
-				li.push_back(i);
+				ReturnItem<TP> p = { i.item, &i.b };
+				li.push_back(p);
 			}
 			for (int i = 0; i < 4; i++) {
 				if (children[i] != NULL) {
@@ -603,6 +629,20 @@ namespace Gore {
 			area_bounds[2] = Bounder(b.x, b.y + (b.h / 2.0f), b.w / 2.0f, b.h / 2.0f);
 			area_bounds[3] = Bounder(b.x + (b.w / 2.0f), b.y + (b.h / 2.0f), b.w / 2.0f, b.h / 2.0f);
 		}
+		//gets number of objects in tree
+		size_t retsize() {
+			size_t tet = 0;
+			retsize(&tet);
+			return tet;
+		}
+		void retsize(size_t* tet) {
+			*tet += items.size();
+			for (int i = 0; i < 4; i++) {
+				if (children[i] != NULL) {
+					children[i]->retsize(tet);
+				}
+			}
+		}
 		//clears entire tree of data
 		void clear() {
 			items.clear();
@@ -614,7 +654,7 @@ namespace Gore {
 				}
 			}
 		}
-		void insert(Particle p, Bounder b) {
+		void insert(TP p, Bounder b) {
 			for (int i = 0; i < 4; i++) {
 				if (area_bounds[i].contains(b)) {
 					if (depth + 1 <= M_DEPTH) {
@@ -626,26 +666,27 @@ namespace Gore {
 					}
 				}
 			}
-			std::list<std::pair<QuadItem, Bounder>>::iterator it = items.end();
+			typename std::list<QuadStore<TP>>::iterator it = items.end();
 			if (it != items.begin()) {
 				--it;
 			}
-			QuadItem ip = {p, this, it };
-			items.push_back({ ip, Bounder(p.x, p.y, 1, 1) });
+			QuadItem<TP> ip = {p, this, it };
+			QuadStore<TP> out = { ip, b };
+			items.push_back(out);
 			//deal with initial garbage value from empty list
 			if (items.size() == 1) {
-				items.begin()->first.pos = --(items.end());
+				items.begin()->item.pos = --(items.end());
 			}
 		}
-		void remove(std::list<std::pair<QuadItem, Bounder>>::iterator it) {
-			it->first.qt->items.erase(it->first.pos);
+		void remove(typename std::list<ReturnItem<TP>>::iterator it) {
+			it->item.qt->items.erase(it->item.pos);
 		}
-		bool move(std::list<std::pair<QuadItem, Bounder>>::iterator it) {
-			if (!it->first.qt->area.contains(it->second)) {
-				Particle tp = it->first.p;
-				Bounder tb = it->second;
+		bool move(typename std::list<ReturnItem<TP>>::iterator it) {
+			if (!it->item.qt->area.contains(*(it->b))) {
+				TP tp = it->item.p;
+				Bounder tb = *(it->b);
 				remove(it);
-				this->insert(tp, tb);
+				insert(tp, tb);
 				return true;
 			}
 			return false;

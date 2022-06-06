@@ -20,6 +20,27 @@ struct BASE {
 class Fire : public Gore::Particle {
 public:
 	Fire(float cx, float cy, int rangel, int rangeh, SDL_Rect crect, Gore::texp list) { rangehigh = rangeh; rangelow = rangel; x = cx; y = cy; trajx = 0; trajy = 0; rect = crect; head = list; bhead = head; erase = false; };
+	void update(double* delta) {
+		animtime += *delta;
+		movetime += *delta;
+		if (movetime > 0.05) {
+			x += trajx;
+			y += trajy;
+			movetime = 0;
+		}
+		if (animtime > 0.1) {
+			head = head->next;
+			alpha -= 5;
+			if (alpha <= 0) {
+				erase = true;
+				alpha = 0;
+			}
+			if (head == NULL) {
+				head = bhead;
+			}
+			animtime = 0;
+		}
+	}
 	void draw(SDL_Renderer* rend) {
 		SDL_SetTextureColorMod(head->current, 235, 149, 52);
 		SDL_SetTextureAlphaMod(head->current, alpha);
@@ -34,18 +55,16 @@ class FireEmitter : public Gore::Emitter {
 private:
 	//std::vector<Fire> particles;
 	Fire* fep;
-	Bounder sc = Bounder(0.0f, 0.0f, 800, 800);
-	Gore::QuadTree quad = Gore::QuadTree(sc, 0);
-	//QuadTree* quad = new QuadTree(sc, 1);
-	//QuadContainer* qc = new QuadContainer(quad);
+	Gore::Bounder sc = Gore::Bounder(0.0f, 0.0f, 800, 800);
+	Gore::QuadTree<Fire>* quad = new Gore::QuadTree<Fire>(sc, 0);
 public:
-	FireEmitter(Fire* par, double spawntime) { fep = par; timetospawn = spawntime;}
+	FireEmitter(Fire* par, double spawntime) { fep = par; timetospawn = spawntime; ctime = 0; }
 	void spawnParticle() {
 		fep->trajx = cos(double(fep->rangelow + (std::rand() % (fep->rangehigh - fep->rangelow + 1))) * M_PI / 180.0);
 		fep->trajy = sin(double(fep->rangelow + (std::rand() % (fep->rangehigh - fep->rangelow + 1))) * M_PI / 180.0);
 		//fep->trajx = 0;
 		//fep->trajy = 0;
-		quad.insert(*fep, { fep->x, fep->y, 1, 1 });
+		quad->insert(*fep, { fep->x, fep->y, 5, 5 });
 		//particles.push_back(*fep);
 	}
 	void update(double* delta, SDL_Renderer* rend) {
@@ -55,43 +74,47 @@ public:
 			ctime = 0;
 		}
 		SDL_SetRenderDrawColor(rend, 255, 100, 155, 0);
-		//wont use fireparticle draw until template being used
-		std::list<std::pair<Gore::QuadItem, Bounder>>::iterator it;
-		std::list<std::pair<Gore::QuadItem, Bounder>> items = quad.search(sc);
+		std::list<Gore::ReturnItem<Fire>>::iterator it;
+		std::list<Gore::ReturnItem<Fire>> items = quad->search(sc);
+		//std::cout << quad->retsize() << "\n";
+		//only editing the copy of the particle we recieve from search
 		for (it = items.begin(); it != items.end();) {
-			it->first.p.update(delta);
-			it->second.x = it->first.p.x;
-			it->second.y = it->first.p.y;
-			it->first.p.draw(rend);
-			if (quad.move(it)) {
-				std::list<std::pair<Gore::QuadItem, Bounder>>::iterator ct = it;
-				std::list<std::pair<Gore::QuadItem, Bounder>>::iterator out;
-				if (std::next(ct) != items.end()) {
+			//std::cout << it->first.p.animtime << "\n";
+			it->item.p.update(delta);
+			it->item.p.draw(rend);
+			if (quad->move(it)) {
+				std::list<Gore::ReturnItem<Fire>>::iterator ct = it;
+				std::list<Gore::ReturnItem<Fire>>::iterator out;
+				if (ct++ != items.end()) {
 					out = it;
-					std::next(out);
+					out++;
 				}
 				else {
 					break;
 				}
 				it = out;
 			}
-			if (it->first.p.erase) {
-				std::list<std::pair<Gore::QuadItem, Bounder>>::iterator ct = it;
-				std::list<std::pair<Gore::QuadItem, Bounder>>::iterator out;
-				if (std::next(ct) != items.end()) {
+			if (it->item.p.erase) {
+				std::list<Gore::ReturnItem<Fire>>::iterator ct = it;
+				std::list<Gore::ReturnItem<Fire>>::iterator out;
+				if (ct++ != items.end()) {
 					out = it;
-					std::next(out);
+					out++;
 				}
 				else {
-					out = items.end();
+					out = items.begin();
 				}
-				quad.remove(it);
+				quad->remove(it);
+				if (out == items.begin()) {
+					break;
+				}
 				it = out;
 			}
 			else {
-				std::next(it);
+				it++;
 			}
 		}
+		items.clear();
 	}
 };
 class Water : public Gore::Particle {
@@ -216,7 +239,7 @@ int main() {
 	Gore::Emitter emit(&fp, 0.2);
 	Fire firep(200, 650, 25, 105, { 300, 600, 5, 5 }, particelist1);
 	firep.erase = false;
-	FireEmitter fireemit(&firep, 0.5);
+	FireEmitter fireemit(&firep, 0.2);
 	Water waterp(500, 650, 90, 180, { 500, 650, 5, 5 }, particelist1);
 	WaterEmitter watemit(&waterp, 0.2);
 	//just use default fullscreen SDL2 provides
@@ -318,7 +341,7 @@ int main() {
 		//cant be used once you make a class that overrides base virtual function
 		//emit.update(&delta, rend);
 		fireemit.update(&delta, rend);
-		//watemit.update(&delta, rend);
+		watemit.update(&delta, rend);
 		//SDL_Rect prect = { 100, 100, 50, 100 };
 		//SDL_RenderCopy(rend, tex2, NULL, &prect);
 		//SDL_Rect enemy1rect = { 300, 300, 50, 100 };
