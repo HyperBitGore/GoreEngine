@@ -56,7 +56,7 @@ private:
 	//std::vector<Fire> particles;
 	Fire* fep;
 	Gore::Bounder sc = Gore::Bounder(0.0f, 0.0f, 800, 800);
-	Gore::QuadTree<Fire>* quad = new Gore::QuadTree<Fire>(sc, 0);
+	Gore::QTree::QuadTree<Fire>* quad = new Gore::QTree::QuadTree<Fire>(sc, 0);
 public:
 	FireEmitter(Fire* par, double spawntime) { fep = par; timetospawn = spawntime; ctime = 0; }
 	void spawnParticle() {
@@ -74,8 +74,8 @@ public:
 			ctime = 0;
 		}
 		SDL_SetRenderDrawColor(rend, 255, 100, 155, 0);
-		std::list<Gore::ReturnItem<Fire>>::iterator it;
-		std::list<Gore::ReturnItem<Fire>> items = quad->search(sc);
+		std::list<Gore::QTree::ReturnItem<Fire>>::iterator it;
+		std::list<Gore::QTree::ReturnItem<Fire>> items = quad->search(sc);
 		//recieve list of return items which contain pointers to tree item values
 		for (it = items.begin(); it != items.end();) {
 			it->item.p.update(delta);
@@ -227,10 +227,9 @@ int main() {
 	WaterEmitter watemit(&waterp, 0.2);
 	//just use default fullscreen SDL2 provides
 	//SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN);
-	Gore::FollowBone bone1({ Gore::Joint(300, 300), Gore::Joint(310, 310), Gore::Joint(310, 325), Gore::Joint(310, 335)}, 0.05, 25.0f);
-	Gore::FKLimb bone2({ Gore::FKBone(0.15, 100, 300, 600), Gore::FKBone(0.45, 100, 400, 550), Gore::FKBone(0.15, 50, 400, 600), Gore::FKBone(0.55, 50, 400, 600) });
-	Gore::IKLimb bone3(Gore::IKBone(200, 600, 10, 0.25), 40);
-	Gore::IKLimb bone4(Gore::IKBone(300, 700, 25, 0.2), 4);
+	Gore::Animate::FKLimb bone2({ Gore::Animate::FKBone(0.15, 100, 300, 600), Gore::Animate::FKBone(0.45, 100, 400, 550), Gore::Animate::FKBone(0.15, 50, 400, 600), Gore::Animate::FKBone(0.55, 50, 400, 600) });
+	Gore::Animate::IKLimb bone3(Gore::Animate::IKBone(200, 600, 10, 0.25), 40);
+	Gore::Animate::IKLimb bone4(Gore::Animate::IKBone(300, 700, 25, 0.2), 4);
 	float thangle = 0.15;
 	float secangle = 0.45;
 	double bone3time = 0;
@@ -333,14 +332,6 @@ int main() {
 		//SDL_RenderCopy(rend, etex5, NULL, &enemy5rect);
 		//Gore::Engine::drawText(rend, alph, "hello world a", 0, 550, 25, 30);
 		SDL_DestroyTexture(tex);
-		if (SDL_GetMouseState(&mx, &my) & SDL_BUTTON(SDL_BUTTON_LEFT)) {
-			if (bonetime > 0.5) {
-				bone1.transformOverTime(mx, my);
-				bonetime = 0;
-			}
-		}
-		bone1.debugDraw(rend);
-		bone1.updateTransform(delta);
 		bone2.bones[0].angle = thangle;
 		bone2.bones[1].angle = secangle;
 		if (bone3time > 0.01) {
@@ -356,6 +347,5 @@ int main() {
 		bone4.debugDraw(rend);
 		SDL_RenderPresent(rend);
 	}
-	bone1.~FollowBone();
 	return 0;
 }
