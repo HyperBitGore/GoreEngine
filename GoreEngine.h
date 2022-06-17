@@ -57,6 +57,10 @@ namespace Gore {
 		//pixel manipulation
 		static void SetPixelSurface(SDL_Surface* surf, int* y, int* x, Uint32* pixel);
 		static void SetPixelSurface(SDL_Surface* surf, int y, int x, Uint32 pixel);
+		static void massSetPixelSurface(SDL_Surface* surf, std::vector<Point> points, Uint32 Pixel);
+		static void massSetPixelSurface(SDL_Surface* surf, Point tp, Point bt, Uint32 Pixel);
+		static bool massGetPixelSurface(SDL_Surface* surf, Point tp, Point bt, Uint32 pixel);
+		static bool massGetPixelSurface(SDL_Surface* surf, std::vector<Point> points, Uint32 pixel);
 
 		static Uint32 GetPixelSurface(SDL_Surface* surf, int* y, int* x);
 		static void SetPixelSurfaceColorRGB(SDL_Surface* surf, int* y, int* x, SDL_Color* color);
@@ -68,6 +72,11 @@ namespace Gore {
 		static void clearTexture(SDL_Texture* tex, int* pitch, int w, int h);
 		static void SetPixelTexture(SDL_Texture* tex, int* y, int* x, Uint32* pixel, int* pitch);
 		static Uint32 GetPixelTexture(SDL_Texture* tex, int* y, int* x, int* pitch);
+		static void MassTextureSet(SDL_Texture* tex, int sy, int sx, int endx, int endy, Uint32* pixel, int* pitch);
+		static void MassTextureSet(SDL_Texture* tex, std::vector<Point> points, std::vector<Uint32>colors, int* pitch);
+		static bool MassTextureCheck(SDL_Texture* tex, int sy, int sx, int endx, int endy, Uint32* pixel, int* pitch);
+		static bool MassTextureCheck(SDL_Texture* tex, std::vector<Point> points, Uint32* pixel, int* pitch);
+
 		//image loading
 		static SDL_Surface* loadPNG(std::string name, SDL_PixelFormatEnum format, int w, int h);
 		static SDL_Surface* LoadBMP(const char* file, SDL_PixelFormatEnum format);

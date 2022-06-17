@@ -53,6 +53,53 @@ void Gore::Engine::SetPixelSurface(SDL_Surface* surf, int y, int x, Uint32 pixel
 	pixels[(y * surf->w) + x] = pixel;
 	SDL_UnlockSurface(surf);
 }
+//put points you want to check into vector
+void Gore::Engine::massSetPixelSurface(SDL_Surface* surf, std::vector<Point> points, Uint32 Pixel) {
+	SDL_LockSurface(surf);
+	Uint32* pixels = (Uint32*)surf->pixels;
+	for (auto& i : points) {
+		pixels[(i.y * surf->w) + i.x] = Pixel;
+	}
+	SDL_UnlockSurface(surf);
+}
+//first point is top point and bt is bottom point where setting stops
+void Gore::Engine::massSetPixelSurface(SDL_Surface* surf, Point tp, Point bt, Uint32 Pixel) {
+	SDL_LockSurface(surf);
+	Uint32* pixels = (Uint32*)surf->pixels;
+	for (int i = tp.y; i < bt.y; i++) {
+		for (int j = tp.x; j < bt.x; j++) {
+			pixels[(i * surf->w) + j] = Pixel;
+		}
+	}
+	SDL_UnlockSurface(surf);
+}
+//give it two points to check in between against the pixel, will return false if that pixel color is found within set
+bool Gore::Engine::massGetPixelSurface(SDL_Surface* surf, Point tp, Point bt, Uint32 pixel) {
+	SDL_LockSurface(surf);
+	Uint32* pixels = (Uint32*)surf->pixels;
+	for (int i = tp.y; i < bt.y; i++) {
+		for (int j = tp.x; j < bt.x; j++) {
+			if (pixels[i * surf->w + j] == pixel) {
+				return false;
+			}
+		}
+	}
+	SDL_UnlockSurface(surf);
+	return true;
+}
+//give it set of points to check against the pixel, will return false if that pixel color is found within set
+bool Gore::Engine::massGetPixelSurface(SDL_Surface* surf, std::vector<Point> points, Uint32 pixel) {
+	SDL_LockSurface(surf);
+	Uint32* pixels = (Uint32*)surf->pixels;
+	for (auto& i : points) {
+		if (pixels[i.y * surf->w + i.x] == pixel) {
+			return false;
+		}
+	}
+	SDL_UnlockSurface(surf);
+	return true;
+}
+
 
 Uint32 Gore::Engine::GetPixelSurface(SDL_Surface* surf, int* y, int* x) {
 	SDL_LockSurface(surf);
@@ -108,6 +155,56 @@ Uint32 Gore::Engine::GetPixelTexture(SDL_Texture* tex, int* y, int* x, int* pitc
 	return pixels[*y * ((*pitch) / sizeof(unsigned int)) + *x];
 	SDL_UnlockTexture(tex);
 }
+
+void Gore::Engine::MassTextureSet(SDL_Texture* tex, int sy, int sx, int endx, int endy, Uint32* pixel, int* pitch) {
+	Uint32* pixels;
+	int pixpitch = (*pitch) / sizeof(unsigned int);
+	SDL_LockTexture(tex, NULL, (void**)&pixels, pitch);
+	for (int h = sy; h <= endy; h++) {
+		for (int w = sx; w <= endx; w++) {
+			pixels[h * pixpitch + w] = *pixel;
+		}
+	}
+	SDL_UnlockTexture(tex);
+}
+void Gore::Engine::MassTextureSet(SDL_Texture* tex, std::vector<Point> points, std::vector<Uint32>colors, int* pitch) {
+	Uint32* pixels;
+	int pixpitch = (*pitch) / sizeof(unsigned int);
+	SDL_LockTexture(tex, NULL, (void**)&pixels, pitch);
+	for (int i = 0; i < points.size(); i++) {
+		pixels[points[i].y * pixpitch + points[i].x] = colors[i];
+	}
+	SDL_UnlockTexture(tex);
+}
+bool Gore::Engine::MassTextureCheck(SDL_Texture* tex, int sy, int sx, int endx, int endy, Uint32* pixel, int* pitch) {
+	Uint32* pixels;
+	int pixpitch = (*pitch) / sizeof(unsigned int);
+	SDL_LockTexture(tex, NULL, (void**)&pixels, pitch);
+	for (int h = sy; h <= endy; h++) {
+		for (int w = sx; w <= endx; w++) {
+			if (pixels[h * pixpitch + w] == *pixel) {
+				SDL_UnlockTexture(tex);
+				return false;
+			}
+		}
+	}
+	SDL_UnlockTexture(tex);
+	return true;
+}
+bool Gore::Engine::MassTextureCheck(SDL_Texture* tex, std::vector<Point> points, Uint32* pixel, int* pitch) {
+	Uint32* pixels;
+	int pixpitch = (*pitch) / sizeof(unsigned int);
+	SDL_LockTexture(tex, NULL, (void**)&pixels, pitch);
+	for (auto& i : points) {
+		if (pixels[i.y * pixpitch + i.x] == *pixel) {
+			SDL_UnlockTexture(tex);
+			return false;
+		}
+	}
+	SDL_UnlockTexture(tex);
+	return true;
+}
+
 //Decodes everything to a 32bit pixel format, but can convert your format to any type
 SDL_Surface* Gore::Engine::loadPNG(std::string name, SDL_PixelFormatEnum format, int w, int h) {
 	unsigned int wr = w;
