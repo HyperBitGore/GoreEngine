@@ -15,6 +15,48 @@
 
 
 namespace Gore {
+	template<typename TP>
+	struct FreeElement {
+		TP el;
+		int next;
+	};
+	template<class T>
+	class FreeList {
+	private:
+		std::vector<FreeElement<T>> items;
+		int first_free;
+	public:
+		FreeList() { first_free = -1; };
+		//returns index of insertion point
+		int insert(T element) {
+			if (first_free != -1) {
+				const int index = first_free;
+				first_free = items[first_free].next;
+				items[index].el = element;
+				return index;
+			}
+			FreeElement<T> f = { element, -1 };
+			items.push_back(f);
+			return int(items.size() - 1);
+		}
+
+		void erase(int n) {
+			items[n].next = first_free;
+			first_free = n;
+		}
+		void clear() {
+			items.clear();
+			first_free = -1;
+		}
+		T& operator[](int n) {
+			return items[n].el;
+		}
+
+		int size() {
+			return static_cast<int>(items.size());
+		}
+	};
+	
 	struct TexListMem {
 		SDL_Texture* current;
 		TexListMem* next;
@@ -430,147 +472,182 @@ namespace Gore {
 		}
 	};
 
-	namespace QTree {
-		template<class TI>
-		class QuadTree;
 
-		template<typename TO>
-		struct QuadStore;
 
+	namespace SpatialAcceleration {
+		template<typename TP>
+		struct QuadElt {
+			//actual data
+			TP data;
+
+			//bounder of element, not even needed
+			Gore::Bounder b;
+		};
+		struct QuadEltNode {
+			//index that points to next element
+			int next;
+
+			//index to element in element list
+			int index;
+		};
+
+
+		struct QuadNode {
+			//indexs to children, -1 if it doesn't exist; try and make the data footprint of this smaller
+			int children[4];
+
+			//mumber of elements in node
+			int32_t count;
+
+			//used to calculate bounder based on depth of tree search
+			Gore::Point p;
+
+			//index to elt node, which begins this nodes elments
+			int eltn_index;
+		};
 
 		template<class T>
-		class QuadItem {
-		public:
-			T p;
-			QuadTree<T>* qt;
-			typename std::list<QuadStore<T>>::iterator pos;
-		};
-		template<typename TK>
-		struct QuadStore {
-			QuadItem<TK> item;
-			Bounder b;
-		};
-
-		template<typename TE>
-		struct ReturnItem {
-			QuadItem<TE>& item;
-			Bounder* b;
-		};
-
-		constexpr int M_DEPTH = 8;
-		template<class TP>
 		class QuadTree {
-		protected:
-			Bounder area_bounds[4];
-			QuadTree<TP>* children[4] = { NULL, NULL, NULL, NULL };
-			//items on this node
-			std::list<QuadStore<TP>> items;
-			Bounder area;
-			size_t depth;
 		public:
-			QuadTree(Bounder b, size_t d) {
-				resize(b);
-				depth = d;
+			//freelist containing the elements
+			Gore::FreeList<QuadElt<T>> elts;
+			//stores all element nodes
+			Gore::FreeList<QuadEltNode> elt_nodes;
+
+			//stores all nodes in tree, first node is always root
+			std::vector<QuadNode> nodes;
+
+			//size of root bounder
+			Gore::Bounder root_rect;
+
+			//index of first free node to be reclaimed as 4 contigous nodes at once. -1 is freelist empty
+			int free_node;
+			//the max depth
+			int m_depth;
+		public:
+			QuadTree(int md, Gore::Bounder rt) {
+				m_depth = md;
+				//nodes are inserted 4 at a time use this to find free point where free
+				free_node = -1;
+				root_rect = rt;
+				QuadNode no;
+				no.p = { (int)rt.x, (int)rt.y };
+				no.count = 0;
+				no.eltn_index = -1;
+				no.children[0] = -1;
+				no.children[1] = -1;
+				no.children[2] = -1;
+				no.children[3] = -1;
+				nodes.push_back(no);
 			}
-			std::list<ReturnItem<TP>> search(Bounder b) {
-				std::list<ReturnItem<TP>> li;
-				search(b, li);
-				return li;
-			}
-			void search(Bounder b, std::list<ReturnItem<TP>>& li) {
-				for (auto& i : items) {
-					if (b.overlaps(i.b)) {
-						ReturnItem<TP> p = { i.item, &i.b };
-						li.push_back(p);
-					}
-				}
-				for (int i = 0; i < 4; i++) {
-					if (children[i] != NULL) {
-						if (b.contains(area_bounds[i])) {
-							children[i]->itemsAdd(li);
-						}
-						else if (area_bounds[i].overlaps(b)) {
-							children[i]->search(b, li);
-						}
-					}
-				}
-			}
-			void itemsAdd(std::list<ReturnItem<TP>>& li) {
-				for (auto& i : items) {
-					ReturnItem<TP> p = { i.item, &i.b };
-					li.push_back(p);
-				}
-				for (int i = 0; i < 4; i++) {
-					if (children[i] != NULL) {
-						children[i]->itemsAdd(li);
-					}
-				}
-			}
-			//clears and changes tree area
-			void resize(Bounder b) {
-				clear();
-				area = b;
-				area_bounds[0] = Bounder(b.x, b.y, b.w / 2.0f, b.h / 2.0f);
-				area_bounds[1] = Bounder(b.x + (b.w / 2.0f), b.y, b.w / 2.0f, b.h / 2.0f);
-				area_bounds[2] = Bounder(b.x, b.y + (b.h / 2.0f), b.w / 2.0f, b.h / 2.0f);
-				area_bounds[3] = Bounder(b.x + (b.w / 2.0f), b.y + (b.h / 2.0f), b.w / 2.0f, b.h / 2.0f);
-			}
-			//gets number of objects in tree
-			size_t retsize() {
-				size_t tet = 0;
-				retsize(&tet);
-				return tet;
-			}
-			void retsize(size_t* tet) {
-				*tet += items.size();
-				for (int i = 0; i < 4; i++) {
-					if (children[i] != NULL) {
-						children[i]->retsize(tet);
-					}
-				}
-			}
-			//clears entire tree of data
-			void clear() {
-				items.clear();
-				for (int i = 0; i < 4; i++) {
-					if (children[i] != NULL) {
-						children[i]->clear();
-						delete children[i];
-						children[i] = NULL;
-					}
-				}
-			}
-			void insert(TP p, Bounder b) {
-				for (int i = 0; i < 4; i++) {
-					if (area_bounds[i].contains(b)) {
-						if (depth + 1 <= M_DEPTH) {
-							if (children[i] == NULL) {
-								children[i] = new QuadTree(area_bounds[i], depth + 1);
+			QuadNode* search(QuadNode* node, Gore::Bounder b, int32_t dp) {
+				//recursive search into nodes
+				Gore::Bounder tb(node->p.x, node->p.y, root_rect.w >> dp, root_rect.h >> dp);
+				if (node != NULL && tb.contains(b)) {
+					dp++;
+					QuadNode* out = node;
+					if (dp + 1 <= m_depth) {
+						std::vector<Gore::Bounder> bos = { Gore::Bounder(node->p.x, node->p.y, tb.w >> 1, tb.h >> 1), Gore::Bounder(node->p.x + (tb.w >> 1), node->p.y, tb.w >> 1, tb.h >> 1),
+						Gore::Bounder(node->p.x, node->p.y + (tb.h >> 1), tb.w >> 1, tb.h >> 1), Gore::Bounder(node->p.x + (tb.w >> 1), node->p.y + (tb.h >> 1), tb.w >> 1, tb.h >> 1) };
+						for (int i = 0; i < 4; i++) {
+							if (bos[i].contains(b)) {
+								if (node->children[i] != -1) {
+									out = &nodes[node->children[i]];
+									QuadNode* tp = search(&nodes[node->children[i]], b, dp);
+									if (tp != NULL) {
+										out = tp;
+									}
+								}
+								else {
+									//generate the node
+									QuadNode np;
+									np.p = { (int)bos[i].x, (int)bos[i].y };
+									np.children[0] = -1;
+									np.children[1] = -1;
+									np.children[2] = -1;
+									np.children[3] = -1;
+									np.count = 0;
+									np.eltn_index = -1;
+									nodes.push_back(np);
+									node->children[i] = nodes.size() - 1;
+									out = &nodes[node->children[i]];
+									QuadNode* tp = search(&nodes[node->children[i]], b, dp);
+									if (tp != NULL) {
+										out = tp;
+									}
+								}
+								break;
 							}
-							children[i]->insert(p, b);
-							return;
+						}
+					}
+					return out;
+				}
+				return NULL;
+			}
+			//insert element into tree
+			void insert(T in, Gore::Bounder b) {
+				QuadElt<T> nop = { in, b };
+				QuadNode* nt = search(&nodes[0], b, 0);
+				if (nt != NULL) {
+					//add into returned node
+					QuadEltNode np;
+					np.index = elts.insert(nop);
+					np.next = nt->eltn_index;
+					nt->eltn_index = elt_nodes.insert(np);
+					nt->count++;
+					return;
+				}
+				//add into root node
+				QuadEltNode np;
+				np.index = elts.insert(nop);
+				np.next = nodes[0].eltn_index;
+				nodes[0].eltn_index = elt_nodes.insert(np);
+				nodes[0].count++;
+
+			}
+			void remove(int index, QuadNode* nt) {
+				//do a search and remove from elts
+				int sav = nt->eltn_index;
+				int id = nt->eltn_index;
+				while (id != index && id != -1) {
+					sav = id;
+					id = elt_nodes[id].next;
+				}
+				if (id != -1) {
+					elts.erase(id);
+					elt_nodes[sav].next = elt_nodes[id].next;
+					elt_nodes.erase(id);
+				}
+
+			}
+			void move(T* data, QuadNode* nt, int index) {
+				//reinsert element
+				insert(*data, elts[elt_nodes[index].index].b);
+				remove(index, nt);
+			}
+			int size() {
+				return elts.size();
+			}
+			void searchNodes(QuadNode* node, Gore::Bounder b, std::vector<QuadNode*>& nds, size_t* depth) {
+				if (b.contains(Gore::Bounder(node->p.x, node->p.y, root_rect.w >> *depth, root_rect.h >> *depth))) {
+					(*depth)++;
+					if (node->count > 0) {
+						nds.push_back(node);
+					}
+					for (int i = 0; i < 4; i++) {
+						if (node->children[i] != -1) {
+							searchNodes(&nodes[node->children[i]], b, nds, depth);
 						}
 					}
 				}
-				typename std::list<QuadStore<TP>>::iterator it = items.end();
-				QuadItem<TP> ip = { p, this, it };
-				QuadStore<TP> out = { ip, b };
-				items.push_back(out);
-				//have to set the actual pos value after because it doesn't exist otherwise
-				items.back().item.pos = --items.end();
 			}
-			void remove(typename std::list<ReturnItem<TP>>::iterator& it) {
-				it->item.qt->items.erase(it->item.pos);
-			}
-			bool move(typename std::list<ReturnItem<TP>>::iterator it) {
-				if (!it->item.qt->area.contains(it->item.pos->b)) {
-					TP tp = it->item.p;
-					Bounder tb = it->item.pos->b;
-					remove(it);
-					insert(tp, tb);
-					return true;
-				}
-				return false;
+
+			std::vector<QuadNode*> getNodes(Gore::Bounder b) {
+				//traverse tree and check if nodes are contained in checking area
+				std::vector<QuadNode*> nds;
+				size_t depth = 0;
+				searchNodes(&nodes[0], b, nds, &depth);
+				return nds;
 			}
 		};
 	}

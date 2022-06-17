@@ -55,8 +55,36 @@ class FireEmitter : public Gore::Emitter {
 private:
 	//std::vector<Fire> particles;
 	Fire* fep;
-	Gore::Bounder sc = Gore::Bounder(0.0f, 0.0f, 800, 800);
-	Gore::QTree::QuadTree<Fire>* quad = new Gore::QTree::QuadTree<Fire>(sc, 0);
+	Gore::Bounder sc = Gore::Bounder(0.0f, 0.0f, 900, 900);
+	Gore::SpatialAcceleration::QuadTree<Fire>* rquad = new Gore::SpatialAcceleration::QuadTree<Fire>(6, Gore::Bounder(0, 0, 800, 800));
+	void updateFireNode(Gore::SpatialAcceleration::QuadNode* node, Gore::Bounder* b, SDL_Renderer* rend, double* delta, size_t depth) {
+		if (b->contains(Gore::Bounder(node->p.x, node->p.y, rquad->root_rect.w >> depth, rquad->root_rect.h >> depth))) {
+			depth++;
+			if (node->count > 0) {
+				int in = node->eltn_index;
+				while (in != -1) {
+					Fire* dt = &rquad->elts[rquad->elt_nodes[in].index].data;
+					dt->update(delta);
+					dt->draw(rend);
+					Gore::Bounder b(node->p.x, node->p.y, rquad->root_rect.w >> depth, rquad->root_rect.h >> depth);
+					//try and make this branchless???
+					/*if (!b.contains(rquad->elts[rquad->elt_nodes[in].index].b)) {
+						rquad->move(dt, node, in);
+					}*/
+					if (dt->erase) {
+						rquad->remove(in, node);
+					}
+					in = rquad->elt_nodes[in].next;
+				}
+			}
+			for (int i = 0; i < 4; i++) {
+				if (node->children[i] != -1) {
+					updateFireNode(&rquad->nodes[node->children[i]], b, rend, delta, depth);
+				}
+			}
+		}
+	}
+
 public:
 	FireEmitter(Fire* par, double spawntime) { fep = par; timetospawn = spawntime; ctime = 0; }
 	void spawnParticle() {
@@ -64,7 +92,7 @@ public:
 		fep->trajy = sin(double(fep->rangelow + (std::rand() % (fep->rangehigh - fep->rangelow + 1))) * M_PI / 180.0);
 		//fep->trajx = 0;
 		//fep->trajy = 0;
-		quad->insert(*fep, { fep->x, fep->y, 5, 5 });
+		rquad->insert(*fep, { fep->x, fep->y, 5, 5 });
 		//particles.push_back(*fep);
 	}
 	void update(double* delta, SDL_Renderer* rend) {
@@ -73,31 +101,8 @@ public:
 			spawnParticle();
 			ctime = 0;
 		}
-		SDL_SetRenderDrawColor(rend, 255, 100, 155, 0);
-		std::list<Gore::QTree::ReturnItem<Fire>>::iterator it;
-		std::list<Gore::QTree::ReturnItem<Fire>> items = quad->search(sc);
-		//recieve list of return items which contain pointers to tree item values
-		for (it = items.begin(); it != items.end();) {
-			it->item.p.update(delta);
-			it->item.p.draw(rend);
-			it->item.pos->b.x = it->item.p.x;
-			it->item.pos->b.y = it->item.p.y;
-			if (quad->move(it)) {
-				it = items.erase(it);
-				//do this to avoid crash from trying to erase end iterator
-				if (it == items.end()) {
-					break;
-				}
-			}
-			if (it->item.p.erase) {
-				quad->remove(it);
-				it = items.erase(it);
-			}
-			else {
-				it++;
-			}
-		}
-		items.clear();
+		//SDL_SetRenderDrawColor(rend, 255, 100, 155, 0);
+		updateFireNode(&rquad->nodes[0], &sc, rend, delta, 0);
 	}
 };
 class Water : public Gore::Particle {
