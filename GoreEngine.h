@@ -455,26 +455,38 @@ namespace Gore {
 	class Bounder {
 	private:
 	public:
-		float x, y;
+		int x, y;
 		int w, h;
 		Bounder() { x = 0; y = 0; w = 50; h = 50; }
-		Bounder(float ix, float iy, int iw, int ih) { x = ix; y = iy; w = iw; h = ih; }
+		Bounder(int ix, int iy, int iw, int ih) { x = ix; y = iy; w = iw; h = ih; }
 
 		bool contains(float ix, float iy) {
 			return!(ix < x || iy < y || ix >= (x + w) || iy >= (y + h));
 		}
 		bool contains(Bounder b) {
-			return (b.x >= x && b.x + b.w < x + w && b.y >= y && b.y + b.h < y + h);
+			//this may not run faster depending on system, but is faster on my AMD ryzen 3600
+			bool ip = false;
+			(b.x >= x) ? ip = true : ip = false;
+			(b.x + b.w < x + w) ? ip = true : ip = false;
+			(b.y >= y) ? ip = true : ip = false;
+			(b.y + b.h < y + h) ? ip = true : ip = false;
+			return ip;
 		}
 		bool overlaps(Bounder b) {
-			bool bt = (x < b.x + b.w && x + w >= b.x && y < b.y + b.h && y + h >= b.y);
-			return bt;
+			bool ip = false;
+			(x < b.x + b.w) ? ip = true : ip = false;
+			(x + w >= b.x) ? ip = true : ip = false;
+			(y < b.y + b.h) ? ip = true : ip = false;
+			(y + h >= b.y) ? ip = true : ip = false;
+			return ip;
 		}
 	};
 
 
 
 	namespace SpatialAcceleration {
+
+
 		template<typename TP>
 		struct QuadElt {
 			//actual data
@@ -489,12 +501,14 @@ namespace Gore {
 
 			//index to element in element list
 			int index;
+
 		};
 
-
+		//instead of using array here use a single index which will be a "pointer" to a begin point in node vector, which we can then add +1, +2, +3, 
+		//to get rest of elements
 		struct QuadNode {
-			//indexs to children, -1 if it doesn't exist; try and make the data footprint of this smaller
-			int children[4];
+			//first index to child, -1 if no children
+			int32_t child;
 
 			//mumber of elements in node
 			int32_t count;
@@ -534,60 +548,85 @@ namespace Gore {
 				no.p = { (int)rt.x, (int)rt.y };
 				no.count = 0;
 				no.eltn_index = -1;
-				no.children[0] = -1;
-				no.children[1] = -1;
-				no.children[2] = -1;
-				no.children[3] = -1;
+				no.child = -1;
 				nodes.push_back(no);
 			}
-			QuadNode* search(QuadNode* node, Gore::Bounder b, int32_t dp) {
+			QuadNode* search(int node, Gore::Bounder b, int32_t dp) {
 				//recursive search into nodes
-				Gore::Bounder tb(node->p.x, node->p.y, root_rect.w >> dp, root_rect.h >> dp);
-				if (node != NULL && tb.contains(b)) {
-					dp++;
-					QuadNode* out = node;
-					if (dp + 1 <= m_depth) {
-						std::vector<Gore::Bounder> bos = { Gore::Bounder(node->p.x, node->p.y, tb.w >> 1, tb.h >> 1), Gore::Bounder(node->p.x + (tb.w >> 1), node->p.y, tb.w >> 1, tb.h >> 1),
-						Gore::Bounder(node->p.x, node->p.y + (tb.h >> 1), tb.w >> 1, tb.h >> 1), Gore::Bounder(node->p.x + (tb.w >> 1), node->p.y + (tb.h >> 1), tb.w >> 1, tb.h >> 1) };
-						for (int i = 0; i < 4; i++) {
-							if (bos[i].contains(b)) {
-								if (node->children[i] != -1) {
-									out = &nodes[node->children[i]];
-									QuadNode* tp = search(&nodes[node->children[i]], b, dp);
-									if (tp != NULL) {
-										out = tp;
-									}
+				QuadNode* out = &nodes[node];
+				QuadNode* nd = &nodes[node];
+				Gore::Bounder tb(nd->p.x, nd->p.y, root_rect.w >> dp, root_rect.h >> dp);
+				dp++;
+				if (!tb.contains(b)) {
+					return NULL;
+				}
+				if (dp + 1 <= m_depth) {
+					Gore::Bounder bos(nd->p.x, nd->p.y, tb.w >> 1, tb.h >> 1);
+					for (int i = 0; i < 4; i++) {
+						switch (i) {
+						case 1:
+							bos = Gore::Bounder(nd->p.x + (tb.w >> 1), nd->p.y, tb.w >> 1, tb.h >> 1);
+							break;
+						case 2:
+							bos = Gore::Bounder(nd->p.x, nd->p.y + (tb.h >> 1), tb.w >> 1, tb.h >> 1);
+							break;
+						case 3:
+							bos = Gore::Bounder(nd->p.x + (tb.w >> 1), nd->p.y + (tb.h >> 1), tb.w >> 1, tb.h >> 1);
+							break;
+						}
+						if (bos.contains(b)) {
+							if (nd->child != -1) {
+								out = &nodes[nd->child + i];
+								QuadNode* tp = search(nd->child + i, b, dp);
+								if (tp != NULL) {
+									out = tp;
 								}
-								else {
-									//generate the node
+							}
+							else {
+								//generate the node
+								for (int j = 0; j < 4; j++) {
 									QuadNode np;
-									np.p = { (int)bos[i].x, (int)bos[i].y };
-									np.children[0] = -1;
-									np.children[1] = -1;
-									np.children[2] = -1;
-									np.children[3] = -1;
+									np.p = { bos.x, bos.y };
+									np.child = -1;
 									np.count = 0;
 									np.eltn_index = -1;
-									nodes.push_back(np);
-									node->children[i] = nodes.size() - 1;
-									out = &nodes[node->children[i]];
-									QuadNode* tp = search(&nodes[node->children[i]], b, dp);
-									if (tp != NULL) {
-										out = tp;
+									switch (j) {
+									case 0:
+										np.p.x = bos.x;
+										np.p.y = bos.y;
+										break;
+									case 1:
+										np.p.x = (bos.w > 0) ? bos.x + (bos.w >> 1) : 0;
+										np.p.y = bos.y;
+										break;
+									case 2:
+										np.p.x = bos.x;
+										np.p.y = (bos.y > 0) ? bos.y + (bos.h >> 1) : 0;
+										break;
+									case 3:
+										np.p.x = (bos.w > 0) ? bos.x + (bos.w >> 1) : 0;
+										np.p.y = (bos.y > 0) ? bos.y + (bos.h >> 1) : 0;
+										break;
 									}
+									nodes.push_back(np);
 								}
-								break;
+								nodes[node].child = nodes.size() - 4;
+								out = &nodes[nodes[node].child + i];
+								QuadNode* tp = search(nodes[node].child + i, b, dp);
+								if (tp != NULL) {
+									out = tp;
+								}
 							}
+							return out;
 						}
 					}
-					return out;
 				}
-				return NULL;
+				return out;
 			}
 			//insert element into tree
 			void insert(T in, Gore::Bounder b) {
 				QuadElt<T> nop = { in, b };
-				QuadNode* nt = search(&nodes[0], b, 0);
+				QuadNode* nt = search(0, b, 0);
 				if (nt != NULL) {
 					//add into returned node
 					QuadEltNode np;
@@ -605,25 +644,52 @@ namespace Gore {
 				nodes[0].count++;
 
 			}
+			//have to be careful with this
 			void remove(int index, QuadNode* nt) {
-				//do a search and remove from elts
-				int sav = nt->eltn_index;
-				int id = nt->eltn_index;
-				while (id != index && id != -1) {
-					sav = id;
-					id = elt_nodes[id].next;
+				//nullify current elt index
+				//try and remove any branching
+				int der = elt_nodes[index].next;
+				if (index == nt->eltn_index) {
+					nt->eltn_index = -1;
+					elt_nodes.erase(index);
+					nt->count--;
+					return;
 				}
-				if (id != -1) {
-					elts.erase(id);
-					elt_nodes[sav].next = elt_nodes[id].next;
-					elt_nodes.erase(id);
+				else if (der != -1) {
+					QuadEltNode* npt = &elt_nodes[der];
+					elt_nodes[index].index = npt->index;
+					elt_nodes[index].next = npt->next;
+					elt_nodes.erase(der);
 				}
-
+				else {
+					//think this is creating problems with deleting zero
+					elt_nodes[index].index = -1;
+					elt_nodes[index].next = -1;
+					//elt_nodes.erase(index);
+				}
+				nt->count--;
+				if (nt->count <= 0) {
+					nt->eltn_index = -1;
+				}
 			}
-			void move(T* data, QuadNode* nt, int index) {
-				//reinsert element
-				insert(*data, elts[elt_nodes[index].index].b);
+			void erase(int elt_index) {
+				elts.erase(elt_index);
+			}
+
+			//this is broken
+			void move(QuadNode* nt, int index) {
+				//just move index pointer to different tree
+				int elt_in = elt_nodes[index].index;
 				remove(index, nt);
+				QuadNode* ntp = search(0, elts[elt_in].b, 0);
+				if (ntp == NULL) {
+					return;
+				}
+				QuadEltNode np;
+				np.index = elt_in;
+				np.next = ntp->eltn_index;
+				ntp->eltn_index = elt_nodes.insert(np);
+				ntp->count++;
 			}
 			int size() {
 				return elts.size();
@@ -635,8 +701,8 @@ namespace Gore {
 						nds.push_back(node);
 					}
 					for (int i = 0; i < 4; i++) {
-						if (node->children[i] != -1) {
-							searchNodes(&nodes[node->children[i]], b, nds, depth);
+						if (nodes[node->child + i] != -1) {
+							searchNodes(&nodes[node->child + i], b, nds, depth);
 						}
 					}
 				}

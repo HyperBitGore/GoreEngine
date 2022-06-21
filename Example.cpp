@@ -58,11 +58,10 @@ private:
 	Gore::Bounder sc = Gore::Bounder(0.0f, 0.0f, 900, 900);
 	Gore::SpatialAcceleration::QuadTree<Fire>* rquad = new Gore::SpatialAcceleration::QuadTree<Fire>(6, Gore::Bounder(0, 0, 800, 800));
 	void updateFireNode(Gore::SpatialAcceleration::QuadNode* node, Gore::Bounder* b, SDL_Renderer* rend, double* delta, size_t depth) {
-		if (b->contains(Gore::Bounder(node->p.x, node->p.y, rquad->root_rect.w >> depth, rquad->root_rect.h >> depth))) {
-			depth++;
+		if (b->overlaps(Gore::Bounder(node->p.x, node->p.y, rquad->root_rect.w >> depth, rquad->root_rect.h >> depth))) {
 			if (node->count > 0) {
 				int in = node->eltn_index;
-				while (in != -1) {
+				while (in != -1 && rquad->elt_nodes[in].index != -1) {
 					Fire* dt = &rquad->elts[rquad->elt_nodes[in].index].data;
 					dt->update(delta);
 					dt->draw(rend);
@@ -72,15 +71,17 @@ private:
 						rquad->move(dt, node, in);
 					}*/
 					if (dt->erase) {
+						rquad->erase(rquad->elt_nodes[in].index);
 						rquad->remove(in, node);
 					}
 					in = rquad->elt_nodes[in].next;
 				}
 			}
-			for (int i = 0; i < 4; i++) {
-				if (node->children[i] != -1) {
-					updateFireNode(&rquad->nodes[node->children[i]], b, rend, delta, depth);
-				}
+			depth++;
+			int i = 0;
+			(node->child != -1) ? i = 0 : i = 4;
+			for (i; i < 4; i++) {
+				updateFireNode(&rquad->nodes[node->child + i], b, rend, delta, depth);
 			}
 		}
 	}
@@ -92,7 +93,7 @@ public:
 		fep->trajy = sin(double(fep->rangelow + (std::rand() % (fep->rangehigh - fep->rangelow + 1))) * M_PI / 180.0);
 		//fep->trajx = 0;
 		//fep->trajy = 0;
-		rquad->insert(*fep, { fep->x, fep->y, 5, 5 });
+		rquad->insert(*fep, { (int)fep->x, (int)fep->y, 5, 5 });
 		//particles.push_back(*fep);
 	}
 	void update(double* delta, SDL_Renderer* rend) {
