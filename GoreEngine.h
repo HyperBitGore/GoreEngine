@@ -502,6 +502,8 @@ namespace Gore {
 			//index to element in element list
 			int index;
 
+			//if element needs to be moved
+			bool move;
 		};
 
 		//instead of using array here use a single index which will be a "pointer" to a begin point in node vector, which we can then add +1, +2, +3, 
@@ -632,6 +634,7 @@ namespace Gore {
 					QuadEltNode np;
 					np.index = elts.insert(nop);
 					np.next = nt->eltn_index;
+					np.move = false;
 					nt->eltn_index = elt_nodes.insert(np);
 					nt->count++;
 					return;
@@ -640,20 +643,19 @@ namespace Gore {
 				QuadEltNode np;
 				np.index = elts.insert(nop);
 				np.next = nodes[0].eltn_index;
+				np.move = false;
 				nodes[0].eltn_index = elt_nodes.insert(np);
 				nodes[0].count++;
 
 			}
-			//have to be careful with this
+			//has memory leak issue
 			void remove(int index, QuadNode* nt) {
 				//nullify current elt index
 				//try and remove any branching
 				int der = elt_nodes[index].next;
-				if (index == nt->eltn_index) {
+				if (nt->count == 1) {
 					nt->eltn_index = -1;
 					elt_nodes.erase(index);
-					nt->count--;
-					return;
 				}
 				else if (der != -1) {
 					QuadEltNode* npt = &elt_nodes[der];
@@ -675,12 +677,11 @@ namespace Gore {
 			void erase(int elt_index) {
 				elts.erase(elt_index);
 			}
-
 			//this is broken
-			void move(QuadNode* nt, int index) {
+			void move(int n_index, int index) {
 				//just move index pointer to different tree
 				int elt_in = elt_nodes[index].index;
-				remove(index, nt);
+				remove(index, &nodes[n_index]);
 				QuadNode* ntp = search(0, elts[elt_in].b, 0);
 				if (ntp == NULL) {
 					return;
@@ -688,9 +689,30 @@ namespace Gore {
 				QuadEltNode np;
 				np.index = elt_in;
 				np.next = ntp->eltn_index;
+				np.move = false;
 				ntp->eltn_index = elt_nodes.insert(np);
 				ntp->count++;
 			}
+			//will move elts that need to be moved
+			void clean_recur(int n_index) {
+				int inp = nodes[n_index].eltn_index;
+				while (inp != -1) {
+					if (elt_nodes[inp].index != -1 && elt_nodes[inp].move) {
+						move(n_index, inp);
+					}
+					inp = elt_nodes[inp].next;
+				}
+				int i = 0;
+				(nodes[n_index].child != -1) ? i = 0 : i = 4;
+				for (i; i < 4; i++) {
+					clean_recur(nodes[n_index].child + i);
+				}
+			}
+
+			void cleanup() {
+				clean_recur(0);
+			}
+
 			int size() {
 				return elts.size();
 			}

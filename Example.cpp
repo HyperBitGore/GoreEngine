@@ -56,32 +56,42 @@ private:
 	//std::vector<Fire> particles;
 	Fire* fep;
 	Gore::Bounder sc = Gore::Bounder(0.0f, 0.0f, 900, 900);
-	Gore::SpatialAcceleration::QuadTree<Fire>* rquad = new Gore::SpatialAcceleration::QuadTree<Fire>(6, Gore::Bounder(0, 0, 800, 800));
-	void updateFireNode(Gore::SpatialAcceleration::QuadNode* node, Gore::Bounder* b, SDL_Renderer* rend, double* delta, size_t depth) {
+	Gore::SpatialAcceleration::QuadTree<Fire>* rquad = new Gore::SpatialAcceleration::QuadTree<Fire>(8, Gore::Bounder(0, 0, 800, 800));
+	void updateFireNode(int n_index, Gore::Bounder* b, SDL_Renderer* rend, double* delta, size_t depth) {
+		Gore::SpatialAcceleration::QuadNode* node = &rquad->nodes[n_index];
 		if (b->overlaps(Gore::Bounder(node->p.x, node->p.y, rquad->root_rect.w >> depth, rquad->root_rect.h >> depth))) {
 			if (node->count > 0) {
 				int in = node->eltn_index;
-				while (in != -1 && rquad->elt_nodes[in].index != -1) {
-					Fire* dt = &rquad->elts[rquad->elt_nodes[in].index].data;
-					dt->update(delta);
-					dt->draw(rend);
-					Gore::Bounder b(node->p.x, node->p.y, rquad->root_rect.w >> depth, rquad->root_rect.h >> depth);
-					//try and make this branchless???
-					/*if (!b.contains(rquad->elts[rquad->elt_nodes[in].index].b)) {
-						rquad->move(dt, node, in);
-					}*/
-					if (dt->erase) {
-						rquad->erase(rquad->elt_nodes[in].index);
-						rquad->remove(in, node);
+				while (in != -1) {
+					if (rquad->elt_nodes[in].next != -1 && rquad->elt_nodes[rquad->elt_nodes[in].next].index == -1) {
+						rquad->elt_nodes.erase(rquad->elt_nodes[in].next);
+						rquad->elt_nodes[in].next = -1;
+					}
+					else if(rquad->elt_nodes[in].index != -1){
+						Fire* dt = &rquad->elts[rquad->elt_nodes[in].index].data;
+						dt->update(delta);
+						dt->draw(rend);
+						rquad->elts[rquad->elt_nodes[in].index].b.x = (int)dt->x;
+						rquad->elts[rquad->elt_nodes[in].index].b.y = (int)dt->y;
+						Gore::Bounder b(node->p.x, node->p.y, rquad->root_rect.w >> depth, rquad->root_rect.h >> depth);
+						if (dt->erase) {
+							rquad->erase(rquad->elt_nodes[in].index);
+							rquad->remove(in, node);
+						}
+						else if (!b.contains(rquad->elts[rquad->elt_nodes[in].index].b)) {
+							//this is kinda broken
+							//rquad->move(n_index, in);
+							rquad->elt_nodes[in].move = true;
+						}
 					}
 					in = rquad->elt_nodes[in].next;
 				}
 			}
 			depth++;
 			int i = 0;
-			(node->child != -1) ? i = 0 : i = 4;
+			(rquad->nodes[n_index].child != -1) ? i = 0 : i = 4;
 			for (i; i < 4; i++) {
-				updateFireNode(&rquad->nodes[node->child + i], b, rend, delta, depth);
+				updateFireNode(rquad->nodes[n_index].child + i, b, rend, delta, depth);
 			}
 		}
 	}
@@ -103,7 +113,8 @@ public:
 			ctime = 0;
 		}
 		//SDL_SetRenderDrawColor(rend, 255, 100, 155, 0);
-		updateFireNode(&rquad->nodes[0], &sc, rend, delta, 0);
+		updateFireNode(0, &sc, rend, delta, 0);
+		rquad->cleanup();
 	}
 };
 class Water : public Gore::Particle {
