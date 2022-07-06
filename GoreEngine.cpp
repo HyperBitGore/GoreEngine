@@ -457,7 +457,7 @@ bool* Gore::Engine::createPoints(SDL_Surface* surf) {
 	}
 	return pt;
 }
-//Need to improve finding of differences between frames; ignores some differences for some reason
+//This works fine now
 Gore::TrList Gore::Engine::generatePixelTransforms(spxp& spritelist) {
 	TrList list = NULL;
 	spxp ptr = spritelist;
@@ -470,7 +470,6 @@ Gore::TrList Gore::Engine::generatePixelTransforms(spxp& spritelist) {
 	ptr = spritelist;
 	SDL_Surface* prev = bef->current;
 	//first transform needs to be differences between last frame and first
-	//second frame is basically being skipped in the data; color data seems to be wrong for 
 	while (ptr != NULL) {
 		PixelTransform* p = new PixelTransform;
 		size_t size = 0;

@@ -521,7 +521,7 @@ namespace Gore {
 			//index to elt node, which begins this nodes elments
 			int eltn_index;
 		};
-
+		//this is so broken. Move and remove both are broken, and insert is broken too
 		template<class T>
 		class QuadTree {
 		public:

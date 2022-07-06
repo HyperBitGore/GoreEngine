@@ -53,7 +53,6 @@ public:
 };
 class FireEmitter : public Gore::Emitter {
 private:
-	//std::vector<Fire> particles;
 	Fire* fep;
 	Gore::Bounder sc = Gore::Bounder(0.0f, 0.0f, 900, 900);
 	Gore::SpatialAcceleration::QuadTree<Fire>* rquad = new Gore::SpatialAcceleration::QuadTree<Fire>(8, Gore::Bounder(0, 0, 800, 800));
