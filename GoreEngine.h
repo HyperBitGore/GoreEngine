@@ -73,6 +73,10 @@ namespace Gore {
 		int x;
 		int y;
 	};
+	struct FPoint {
+		float x;
+		float y;
+	};
 	//4 byte: x, 4 byte: y, 4 byte: color data; repeat through data;
 	struct PixelTransform {
 		char* data;
@@ -486,6 +490,98 @@ namespace Gore {
 
 	namespace SpatialAcceleration {
 
+		template<typename W>
+		struct HashObj {
+			W* obj;
+			int id;
+			HashObj* next;
+		};
+		template<class T>
+		class SpatialHashMap {
+		private:
+			std::vector<HashObj<T>*> buckets;
+			int cellsize;
+			int grid_width;
+		public:
+			SpatialHashMap() {
+				cellsize = 25;
+				grid_width = 10;
+				for (int i = 0; i < 10; i++) {
+					for (int j = 0; j < 10; j++) {
+						buckets.push_back(nullptr);
+					}
+				}
+			}
+			SpatialHashMap(float max, float min, int cell_size) {
+				//create the buckets
+				cellsize = cell_size;
+				grid_width = (max - min)/cellsize;
+				for (int i = 0; i < grid_width; i++) {
+					for (int j = 0; j < grid_width; j++) {
+						buckets.push_back(nullptr);
+					}
+				}
+			}
+			int hash(FPoint pt) {
+				return int((std::floor(pt.x / float(cellsize))) + (std::floor(pt.y / float(cellsize))) * grid_width);
+			}
+			//returns bucket id, will not insert if outside of range
+			int insert(T* obj, FPoint pt) {
+				int p = hash(pt);
+				if (p >= buckets.size()) {
+					return -1;
+				}
+				HashObj<T>* tp = new HashObj<T>;
+				tp->id = p;
+				tp->next = buckets[p];
+				tp->obj = obj;
+				buckets[p] = tp;
+				return p;
+			}
+			//returns true on success, returns false on out of bounds or failure to locate
+			bool remove(FPoint pt, T* obj) {
+				int p = hash(pt);
+				if (p >= buckets.size()) {
+					return false;
+				}
+				HashObj<T>* ptr1 = buckets[p];
+				HashObj<T>* prev = nullptr;
+				while (ptr1 != nullptr) {
+					if (ptr1->obj == obj) {
+						//delete current ptr and set it equal to last object
+						if (prev != nullptr) {
+							prev->next = ptr1->next;
+						}
+						else {
+							buckets[p] = ptr1->next;
+						}
+						delete ptr1;
+						return true;
+					}
+					prev = ptr1;
+					ptr1 = ptr1->next;
+				}
+				return false;
+			}
+			//finds bucket point is located in
+			HashObj<T>* find(FPoint pt) {
+				int p = hash(pt);
+				return buckets[p];
+			}
+			~SpatialHashMap() {
+				//destroy the chain data and then clear buckets
+				for (auto& i : buckets) {
+					HashObj<T>* ptr = i;
+					HashObj<T>* prev = nullptr;
+					while (ptr != nullptr) {
+						prev = ptr;
+						ptr = ptr->next;
+						delete prev;
+					}
+				}
+				buckets.clear();
+			}
+		};
 
 		template<typename TP>
 		struct QuadElt {

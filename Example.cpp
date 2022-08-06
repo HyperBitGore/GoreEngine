@@ -117,7 +117,10 @@ public:
 	}
 };
 class Water : public Gore::Particle {
+private:
 public:
+	int cur_cell = 0;
+	Gore::FPoint g_id;
 	Water(float cx, float cy, int rangel, int rangeh, SDL_Rect crect, Gore::texp list) { rangehigh = rangeh; rangelow = rangel; x = cx; y = cy; trajx = 0; trajy = 0; rect = crect; head = list; bhead = head; erase = false; };
 	void draw(SDL_Renderer* rend) {
 		SDL_SetTextureColorMod(head->current, 150, 85, 255);
@@ -133,6 +136,7 @@ public:
 class WaterEmitter : public Gore::Emitter {
 private:
 	std::vector<Water> particles;
+	Gore::SpatialAcceleration::SpatialHashMap<Water> p_map = Gore::SpatialAcceleration::SpatialHashMap<Water>(800, 0, 25);
 	Water* fep;
 public:
 	WaterEmitter(Water* par, double spawntime) { fep = par; timetospawn = spawntime; }
@@ -140,6 +144,8 @@ public:
 		fep->trajx = cos(double(fep->rangelow + (std::rand() % (fep->rangehigh - fep->rangelow + 1))) * M_PI / 180.0);
 		fep->trajy = sin(double(fep->rangelow + (std::rand() % (fep->rangehigh - fep->rangelow + 1))) * M_PI / 180.0);
 		particles.push_back(*fep);
+		particles[particles.size() - 1].cur_cell = p_map.insert(&particles[particles.size() - 1], { fep->x, fep->y });
+		particles[particles.size() - 1].g_id = { fep->x, fep->y };
 	}
 	void update(double* delta, SDL_Renderer* rend) {
 		ctime += *delta;
@@ -150,8 +156,16 @@ public:
 		for (int i = 0; i < particles.size();) {
 			particles[i].update(delta);
 			particles[i].draw(rend);
+			if (p_map.hash({ particles[i].x, particles[i].y }) != particles[i].cur_cell) {
+				if (p_map.remove(particles[i].g_id, &particles[i])) {
+					particles[i].cur_cell = p_map.insert(&particles[i], { particles[i].x, particles[i].y });
+					particles[i].g_id = { particles[i].x, particles[i].y };
+				}
+				std::cout << particles[i].cur_cell << "\n";
+			}
 			if (particles[i].erase) {
 				particles.erase(particles.begin() + i);
+				p_map.remove({ particles[i].x, particles[i].y }, &particles[i]);
 			}
 			else {
 				i++;
@@ -239,7 +253,7 @@ int main() {
 	Fire firep(200, 650, 25, 105, { 300, 600, 5, 5 }, particelist1);
 	firep.erase = false;
 	FireEmitter fireemit(&firep, 0.2);
-	Water waterp(500, 650, 90, 180, { 500, 650, 5, 5 }, particelist1);
+	Water waterp(650, 20, 90, 180, { 500, 650, 5, 5 }, particelist1);
 	WaterEmitter watemit(&waterp, 0.2);
 	//just use default fullscreen SDL2 provides
 	//SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN);
