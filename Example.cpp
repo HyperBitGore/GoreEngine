@@ -55,9 +55,9 @@ class FireEmitter : public Gore::Emitter {
 private:
 	Fire* fep;
 	Gore::Bounder sc = Gore::Bounder(0.0f, 0.0f, 900, 900);
-	Gore::SpatialAcceleration::QuadTree<Fire>* rquad = new Gore::SpatialAcceleration::QuadTree<Fire>(8, Gore::Bounder(0, 0, 800, 800));
+	Gore::SpatialAcceleration::QuadTree<Fire>* rquad = new Gore::SpatialAcceleration::QuadTree<Fire>(Gore::Bounder(0, 0, 800, 800), 8);
 	void updateFireNode(int n_index, Gore::Bounder* b, SDL_Renderer* rend, double* delta, size_t depth) {
-		Gore::SpatialAcceleration::QuadNode* node = &rquad->nodes[n_index];
+		/*Gore::SpatialAcceleration::QuadNode* node = &rquad->nodes[n_index];
 		if (b->overlaps(Gore::Bounder(node->p.x, node->p.y, rquad->root_rect.w >> depth, rquad->root_rect.h >> depth))) {
 			if (node->count > 0) {
 				int in = node->eltn_index;
@@ -92,7 +92,7 @@ private:
 			for (i; i < 4; i++) {
 				updateFireNode(rquad->nodes[n_index].child + i, b, rend, delta, depth);
 			}
-		}
+		}*/
 	}
 
 public:
@@ -112,8 +112,8 @@ public:
 			ctime = 0;
 		}
 		//SDL_SetRenderDrawColor(rend, 255, 100, 155, 0);
-		updateFireNode(0, &sc, rend, delta, 0);
-		rquad->cleanup();
+		//updateFireNode(0, &sc, rend, delta, 0);
+		//rquad->cleanup();
 	}
 };
 class Water : public Gore::Particle {

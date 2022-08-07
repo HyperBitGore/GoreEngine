@@ -6,6 +6,7 @@
 #include <array>
 #include <list>
 #include "lodepng.h"
+#include "g_primitive_funcs.h"
 
 //Didn't want to include windows header to do resource exe inclusion so just follow along with this page if you want to do this. 
 //https://stackoverflow.com/questions/22151099/including-data-file-into-c-project
@@ -583,7 +584,166 @@ namespace Gore {
 			}
 		};
 
-		template<typename TP>
+		//quad tree rewrite 2
+		template<typename T>
+		struct QuadElt {
+			T obj;
+			Gore::Bounder b;
+		};
+
+		struct QuadEltNode {
+			int next;
+			int prev;
+			int index;
+			bool move;
+		};
+
+		struct QuadNode {
+			//creates four children at once, so this is index of first child
+			int32_t child;
+
+			//count of elements in node
+			int32_t count;
+
+			//elt index
+			int eltn_index;
+
+			//point where node is located
+			Gore::Point pt;
+		};
+
+		template<class T>
+		class QuadTree {
+		private:
+			FreeList<QuadElt<T>> elements;
+			FreeList<QuadEltNode> elt_nodes;
+			std::vector<QuadNode> nodes;
+			Gore::Bounder bounds;
+			int m_depth;
+
+		public:
+			QuadTree(Gore::Bounder b, int inm) {
+				bounds = b;
+				//create first node, which represents root node
+				QuadNode nd = { -1, 0, -1, {b.x, b.y} };
+				nodes.push_back(nd);
+				m_depth = inm;
+			}
+			//finds whatever node bounder will fit into
+			int findNode(Bounder b, int depth, int c_node) {
+				Bounder b1(nodes[c_node].pt.x, nodes[c_node].pt.y, bounds.w >> depth, bounds.h >> depth);
+				if (!b1.contains(b) || depth + 1 >= m_depth) {
+					return -1;
+				}
+				int out = -1;
+				//search through four potential child nodes
+				Bounder bt1(nodes[c_node].pt.x, nodes[c_node].pt.y, b1.w >> 1, b1.h >> 1);
+				depth++;
+				for (int i = 0; i < 4; i++) {
+					switch (i) {
+					case 1:
+						bt1 = Gore::Bounder(nodes[c_node].pt.x + (b1.w >> 1), nodes[c_node].pt.y, b1.w >> 1, b1.h >> 1);
+						break;
+					case 2:
+						bt1 = Gore::Bounder(nodes[c_node].pt.x, nodes[c_node].pt.y + (b1.h >> 1), b1.w >> 1, b1.h >> 1);
+						break;
+					case 3:
+						bt1 = Gore::Bounder(nodes[c_node].pt.x + (b1.w >> 1), nodes[c_node].pt.y + (b1.h >> 1), b1.w >> 1, b1.h >> 1);
+						break;
+					}
+					if (bt1.contains(b)) {
+						if (nodes[c_node].child != -1) {
+							out = nodes[c_node].child + i;
+							int tem = findNode(b, depth, nodes[c_node].child + i);
+							if (tem != -1) {
+								out = tem;
+							}
+						}
+						else {
+							//generate nodes
+							for (int j = 0; j < 4; j++) {
+								QuadNode np;
+								np.pt = { bt1.x, bt1.y };
+								np.child = -1;
+								np.count = 0;
+								np.eltn_index = -1;
+								switch (j) {
+								case 0:
+									np.pt.x = bt1.x;
+									np.pt.y = bt1.y;
+									break;
+								case 1:
+									np.pt.x = (bt1.w > 0) ? bt1.x + (bt1.w >> 1) : 0;
+									np.pt.y = bt1.y;
+									break;
+								case 2:
+									np.pt.x = bt1.x;
+									np.pt.y = (bt1.y > 0) ? bt1.y + (bt1.h >> 1) : 0;
+									break;
+								case 3:
+									np.pt.x = (bt1.w > 0) ? bt1.x + (bt1.w >> 1) : 0;
+									np.pt.y = (bt1.y > 0) ? bt1.y + (bt1.h >> 1) : 0;
+									break;
+								}
+								nodes.push_back(np);
+							}
+							nodes[c_node].child = nodes.size() - 4;
+							out = nodes[c_node].child + i;
+							int tem = findNode(b, depth, nodes[c_node].child + i);
+							if (tem != -1) {
+								out = tem;
+							}
+						}
+					}
+				}
+				return out;
+
+			}
+			//inserts element into tree, returns elt node index
+			int insert(T in, Bounder bin) {
+				QuadElt<T> obj = { in, bin };
+				//now we find the node this will go into
+				int node = findNode(bin, 0, 0);
+				//insert into node
+				if (node != -1) {
+					//add into returned node
+					QuadEltNode np;
+					np.index = elements.insert(obj);
+					np.next = nodes[node].eltn_index;
+					np.prev = -1;
+					(nodes[node].eltn_index != -1) ? elt_nodes[nodes[node].eltn_index].prev = np.index : np.prev = -1;
+					np.move = false;
+					nodes[node].eltn_index = elt_nodes.insert(np);
+					nodes[node].count++;
+					return nodes[node].eltn_index;
+				}
+				//add into root node
+				QuadEltNode np;
+				np.index = elements.insert(obj);
+				np.next = nodes[0].eltn_index;
+				np.prev = -1;
+				(nodes[node].eltn_index != -1) ? elt_nodes[nodes[node].eltn_index].prev = np.index : elt_nodes[nodes[node].eltn_index].prev = -1;
+				np.move = false;
+				nodes[0].eltn_index = elt_nodes.insert(np);
+				nodes[0].count++;
+				return nodes[node].eltn_index;
+			}
+			//completely removes elt from tree
+			void remove(int eltn_index) {
+				
+			}
+			//moves an element if it doesn't fit into current node
+			void move(int eltn_index, Bounder new_b) {
+				
+			}
+			//moves all element nodes that need to be moved
+			void move_call() {
+				
+			}
+		};
+
+
+		/*template<typename TP>
 		struct QuadElt {
 			//actual data
 			TP data;
@@ -833,6 +993,6 @@ namespace Gore {
 				searchNodes(&nodes[0], b, nds, &depth);
 				return nds;
 			}
-		};
+		};*/
 	}
 }
