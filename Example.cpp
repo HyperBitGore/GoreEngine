@@ -111,6 +111,47 @@ public:
 			spawnParticle();
 			ctime = 0;
 		}
+		std::vector<Gore::SpatialAcceleration::QuadNode>& nodes = rquad->getNodes();
+		Gore::FreeList<Gore::SpatialAcceleration::QuadEltNode>& elt_nodes = rquad->getEltNodes();
+		Gore::FreeList<Gore::SpatialAcceleration::QuadElt<Fire>>& elts = rquad->getElements();
+		int cur_n = 0;
+		for (auto& n : nodes) {
+			int next = n.eltn_index;
+			while (next != -1) {
+				std::cout << "start of elt_node access\n";
+				Gore::SpatialAcceleration::QuadEltNode* nt = nullptr;
+				if (next < elt_nodes.size() && next >= 0) {
+					std::cout << next << "\n";
+					nt = &elt_nodes[next];
+					std::cout << "end of elt_node access\n";
+				}
+				else {
+					nt = nullptr;
+				}
+				if (nt != nullptr) {
+					int prev_in = nt->index;
+					int prev1 = next;
+					elts[nt->index].obj.update(delta);
+					elts[nt->index].obj.draw(rend);
+					elts[nt->index].b.x = elts[nt->index].obj.x;
+					elts[nt->index].b.y = elts[nt->index].obj.y;
+					(nt->next < elt_nodes.size()) ? next = nt->next : next = -1;
+					//rquad->move(prev1, cur_n, elts[prev->index].b);
+					if (elts[prev_in].obj.erase) {
+						rquad->erase(prev1, cur_n);
+					}
+					else {
+						//not move itself, its next update??
+						rquad->move(prev1, cur_n, elts[prev_in].b);
+						std::cout << "move done\n";
+					}
+				}
+				else {
+					next = -1;
+				}
+			}
+			cur_n++;
+		}
 		//SDL_SetRenderDrawColor(rend, 255, 100, 155, 0);
 		//updateFireNode(0, &sc, rend, delta, 0);
 		//rquad->cleanup();
@@ -161,7 +202,7 @@ public:
 					particles[i].cur_cell = p_map.insert(&particles[i], { particles[i].x, particles[i].y });
 					particles[i].g_id = { particles[i].x, particles[i].y };
 				}
-				std::cout << particles[i].cur_cell << "\n";
+				//std::cout << particles[i].cur_cell << "\n";
 			}
 			if (particles[i].erase) {
 				particles.erase(particles.begin() + i);

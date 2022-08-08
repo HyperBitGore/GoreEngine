@@ -694,6 +694,7 @@ namespace Gore {
 								out = tem;
 							}
 						}
+						i = 4;
 					}
 				}
 				return out;
@@ -711,9 +712,10 @@ namespace Gore {
 					np.index = elements.insert(obj);
 					np.next = nodes[node].eltn_index;
 					np.prev = -1;
-					(nodes[node].eltn_index != -1) ? elt_nodes[nodes[node].eltn_index].prev = np.index : np.prev = -1;
 					np.move = false;
-					nodes[node].eltn_index = elt_nodes.insert(np);
+					int ttem = elt_nodes.insert(np);
+					(nodes[node].eltn_index != -1) ? elt_nodes[nodes[node].eltn_index].prev = ttem : np.prev = -1;
+					nodes[node].eltn_index = ttem;
 					nodes[node].count++;
 					return nodes[node].eltn_index;
 				}
@@ -722,23 +724,74 @@ namespace Gore {
 				np.index = elements.insert(obj);
 				np.next = nodes[0].eltn_index;
 				np.prev = -1;
-				(nodes[node].eltn_index != -1) ? elt_nodes[nodes[node].eltn_index].prev = np.index : elt_nodes[nodes[node].eltn_index].prev = -1;
 				np.move = false;
-				nodes[0].eltn_index = elt_nodes.insert(np);
+				int ttem = elt_nodes.insert(np);
+				(nodes[0].eltn_index != -1) ? elt_nodes[nodes[0].eltn_index].prev = ttem : np.prev = -1;
+				nodes[0].eltn_index = ttem;
 				nodes[0].count++;
 				return nodes[node].eltn_index;
 			}
-			//completely removes elt from tree
-			void remove(int eltn_index) {
-				
+			//erases element as well as node
+			void erase(int eltn_index, int node) {
+				QuadEltNode* cur_eltn = &elt_nodes[eltn_index];
+				(cur_eltn->prev != -1) ? elt_nodes[cur_eltn->prev].next = cur_eltn->next : nodes[node].eltn_index = cur_eltn->next;
+				(cur_eltn->next != -1) ? elt_nodes[cur_eltn->next].prev = cur_eltn->prev : cur_eltn->index;
+				elements.erase(cur_eltn->index);
+				elt_nodes.erase(eltn_index);
+				nodes[node].count--;
+			}
+			//completely removes elt node from tree
+			void remove(int eltn_index, int node) {
+				QuadEltNode* cur_eltn = &elt_nodes[eltn_index];
+				(cur_eltn->prev != -1) ? elt_nodes[cur_eltn->prev].next = cur_eltn->next : nodes[node].eltn_index = cur_eltn->next;
+				(cur_eltn->next != -1) ? elt_nodes[cur_eltn->next].prev = cur_eltn->prev : cur_eltn->index;
+				elt_nodes.erase(eltn_index);
+				nodes[node].count--;
 			}
 			//moves an element if it doesn't fit into current node
-			void move(int eltn_index, Bounder new_b) {
-				
+			int move(int eltn_index, int nod, Bounder new_b) {
+				QuadEltNode cur_eltn = elt_nodes[eltn_index];
+				int elt_in = cur_eltn.index;
+				remove(eltn_index, nod);
+				int node = findNode(new_b, 0, 0);
+				if (node != -1) {
+					QuadEltNode np;
+					np.index = elt_in;
+					np.next = nodes[node].eltn_index;
+					np.prev = -1;
+					np.move = false;
+					int ttem = elt_nodes.insert(np);
+					(nodes[node].eltn_index != -1) ? elt_nodes[nodes[node].eltn_index].prev = ttem : np.prev = -1;
+					nodes[node].eltn_index = ttem;
+					nodes[node].count++;
+					return ttem;
+				}
+				QuadEltNode np;
+				np.index = elt_in;
+				np.next = nodes[0].eltn_index;
+				np.prev = -1;
+				np.move = false;
+				int ttem = elt_nodes.insert(np);
+				(nodes[0].eltn_index != -1) ? elt_nodes[nodes[0].eltn_index].prev = ttem : np.prev = -1;
+				nodes[0].eltn_index = ttem;
+				nodes[0].count++;
+				return ttem;
 			}
 			//moves all element nodes that need to be moved
 			void move_call() {
-				
+
+			}
+			size_t getSize() {
+				return elements.size();
+			}
+			std::vector<QuadNode>& getNodes() {
+				return nodes;
+			}
+			FreeList<QuadEltNode>& getEltNodes() {
+				return elt_nodes;
+			}
+			FreeList<QuadElt<T>>& getElements() {
+				return elements;
 			}
 		};
 
