@@ -79,12 +79,12 @@ public:
 		for (auto& n : nodes) {
 			int next = n.eltn_index;
 			while (next != -1) {
-				std::cout << "start of elt_node access\n";
+				//std::cout << "start of elt_node access\n";
 				Gore::SpatialAcceleration::QuadEltNode* nt = nullptr;
 				if (next < elt_nodes.size() && next >= 0) {
-					std::cout << next << "\n";
+					//std::cout << next << "\n";
 					nt = &elt_nodes[next];
-					std::cout << "end of elt_node access\n";
+					//std::cout << "end of elt_node access\n";
 				}
 				else {
 					nt = nullptr;
@@ -104,7 +104,7 @@ public:
 					else {
 						//not move itself, its next update??
 						rquad->move(prev1, cur_n, elts[prev_in].b);
-						std::cout << "move done\n";
+						//std::cout << "move done\n";
 					}
 				}
 				else {
@@ -264,6 +264,12 @@ int main() {
 	float secangle = 0.45;
 	double bone3time = 0;
 	double bonetime = 0;
+	//texture draw
+	Gore::TextureDraw texdr(800, 800, 32, SDL_PIXELFORMAT_RGBA8888, rend);
+	texdr.clear();
+	texdr.appendSurf(*animlist.search("enem1_1.png"), 200, 200);
+	texdr.appendSurf(*animlist.search("enem1_2.png"), 790, 200);
+	texdr.appendSurf(*animlist.search("enem1_3.png"), 200, 790);
 	while (!exitf) {
 		while (SDL_PollEvent(&e)) {
 			switch (e.type) {
@@ -362,6 +368,17 @@ int main() {
 		//SDL_RenderCopy(rend, etex5, NULL, &enemy5rect);
 		//Gore::Engine::drawText(rend, alph, "hello world a", 0, 550, 25, 30);
 		SDL_DestroyTexture(tex);
+		texdr.clear();
+		texdr.appendSurf(*animlist.search("enem1_1.png"), 200, 200);
+		texdr.appendSurf(*animlist.search("enem1_2.png"), 790, 200);
+		texdr.appendSurf(*animlist.search("enem1_3.png"), 200, 790);
+		texdr.appendSurf(animsurf, 500, 590);
+		size_t posx = 0;
+		for (int i = 0; i < 32; i++) {
+			texdr.appendSurf(animsurf, posx, 100);
+			posx += 30;
+		}
+		texdr.drawTex({ 0, 0, 800, 800 });
 		bone2.bones[0].angle = thangle;
 		bone2.bones[1].angle = secangle;
 		if (bone3time > 0.01) {

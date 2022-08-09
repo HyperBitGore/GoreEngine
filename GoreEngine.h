@@ -487,7 +487,53 @@ namespace Gore {
 		}
 	};
 
-
+	class TextureDraw {
+	private:
+		SDL_Texture* tex;
+		SDL_Surface* surf;
+		SDL_Renderer* rend;
+		bool changed = false;
+	public:
+		TextureDraw(int w, int h, int depth, Uint32 form, SDL_Renderer* ren) {
+			surf = SDL_CreateRGBSurfaceWithFormat(0, w, h, depth, form);
+			rend = ren;
+			tex = SDL_CreateTextureFromSurface(rend, surf);
+		}
+		//has to be same format as this objects surf
+		void appendSurf(SDL_Surface* in, int x, int y) {
+			if (in->format->format != surf->format->format) {
+				return;
+			}
+			char* src = (char*)in->pixels;
+			char* dst = (char*)surf->pixels;
+			size_t pos = 0;
+			dst += (y * surf->pitch);
+			pos += y;
+			dst += (x * surf->format->BytesPerPixel);
+			for (int i = 0; i < in->h; i++) {
+				//memcpy data into row
+				std::memcpy(dst, src, in->pitch);
+				src += in->pitch;
+				//added ? here to check if dst will go out of bounds, and if it does just return
+				(pos + 1 > surf->h) ? dst = (char*)surf->pixels : dst += surf->pitch;
+				pos++;
+				if (dst == (char*)surf->pixels) { return; }
+				//dst += surf->pitch;
+			}
+			changed = true;
+		}
+		void drawTex(SDL_Rect rect) {
+			if (changed) {
+				SDL_DestroyTexture(tex);
+				tex = SDL_CreateTextureFromSurface(rend, surf);
+				changed = false;
+			}
+			SDL_RenderCopy(rend, tex, NULL, &rect);
+		}
+		void clear() {
+			Engine::clearSurface(surf);
+		}
+	};
 
 	namespace SpatialAcceleration {
 
