@@ -1,6 +1,6 @@
 #include "GoreEngine.h"
 
-void Gore::Engine::insertTex(TexListMem*& tex, SDL_Texture* current, std::string name) {
+/*void Gore::Engine::insertTex(TexListMem*& tex, SDL_Texture* current, std::string name) {
 	texp t;
 	t = new TexListMem;
 	t->current = current;
@@ -38,7 +38,7 @@ SDL_Surface* Gore::Engine::findSprite(spxp sp, std::string name) {
 	}
 	return NULL;
 }
-
+*/
 
 //Pixel manipulation
 void Gore::Engine::SetPixelSurface(SDL_Surface* surf, int* y, int* x, Uint32* pixel) {
@@ -233,8 +233,8 @@ SDL_Surface* Gore::Engine::LoadBMP(const char* file, SDL_PixelFormatEnum format)
 }
 
 //Loads textures into memory as a linked list. Keep width/heights even with names or you'll get an error
-Gore::texp& Gore::Engine::loadTextureList(std::vector<std::string> names, std::vector<unsigned int> widths, std::vector<unsigned int> heights, SDL_PixelFormatEnum format, SDL_Renderer* rend, std::string filepath) {
-	texp head = NULL;
+Gore::FowardList<SDL_Texture*>& Gore::Engine::loadTextureList(std::vector<std::string> names, std::vector<unsigned int> widths, std::vector<unsigned int> heights, SDL_PixelFormatEnum format, SDL_Renderer* rend, std::string filepath) {
+	Gore::FowardList<SDL_Texture*> head;
 	int j = 0;
 	for (auto& i : names) {
 		std::string t = i;
@@ -243,14 +243,15 @@ Gore::texp& Gore::Engine::loadTextureList(std::vector<std::string> names, std::v
 		}
 		SDL_Surface* surf = loadPNG(t, format, widths[j], heights[j]);
 		SDL_Texture* tex = SDL_CreateTextureFromSurface(rend, surf);
-		insertTex(head, tex, i);
+		head.insert(tex, i);
+		//insertTex(head, tex, i);
 		SDL_FreeSurface(surf);
 		j++;
 	}
 	return head;
 }
-Gore::spxp& Gore::Engine::loadSpriteList(std::vector<std::string> names, std::vector<unsigned int> widths, std::vector<unsigned int> heights, SDL_PixelFormatEnum format, std::string filepath) {
-	spxp head = NULL;
+Gore::FowardList<SDL_Surface*>& Gore::Engine::loadSpriteList(std::vector<std::string> names, std::vector<unsigned int> widths, std::vector<unsigned int> heights, SDL_PixelFormatEnum format, std::string filepath) {
+	Gore::FowardList<SDL_Surface*> head;
 	int j = 0;
 	for (auto& i : names) {
 		std::string t = i;
@@ -258,7 +259,8 @@ Gore::spxp& Gore::Engine::loadSpriteList(std::vector<std::string> names, std::ve
 			t = filepath + i;
 		}
 		SDL_Surface* surf = loadPNG(t, format, widths[j], heights[j]);
-		insertSprite(head, surf, i);
+		head.insert(surf, i);
+		//insertSprite(head, surf, i);
 		j++;
 	}
 	return head;
@@ -267,19 +269,20 @@ Gore::spxp& Gore::Engine::loadSpriteList(std::vector<std::string> names, std::ve
 
 //Text functions
 //Input starting integer number for character then will loop through till it hits end of input whole time adding to out
-void Gore::Engine::mapTextTextures(int start, texp& out, texp& input) {
-	texp t = input;
-	while (t != NULL) {
+void Gore::Engine::mapTextTextures(int start, Gore::FowardList<SDL_Texture*>& out, Gore::FowardList<SDL_Texture*>& input) {
+	Gore::FObj<SDL_Texture*>* t = input.getHead();
+	while (t != nullptr) {
 		std::string temp;
 		temp.push_back(start);
-		insertTex(out, t->current, temp);
+		out.insert(t->current, temp);
+		//insertTex(out, t->current, temp);
 		start++;
 		t = t->next;
 	}
 }
 
 //Width and height for individual letters
-void Gore::Engine::drawText(SDL_Renderer* rend, texp& texthead, std::string text, int x, int y, int w, int h) {
+void Gore::Engine::drawText(SDL_Renderer* rend, Gore::FowardList<SDL_Texture*>& texthead, std::string text, int x, int y, int w, int h) {
 	int sx = x;
 	int sy = y;
 	for (auto& i : text) {
@@ -290,7 +293,8 @@ void Gore::Engine::drawText(SDL_Renderer* rend, texp& texthead, std::string text
 			SDL_Rect rect = { sx, sy, w, h };
 			std::string t;
 			t.push_back(i);
-			SDL_Texture* temp = findTex(texthead, t);
+			SDL_Texture* temp = *texthead.search(t);
+			//findTex(texthead, t);
 			if (temp != NULL) {
 				SDL_RenderCopy(rend, temp, NULL, &rect);
 				sx += w + 1;
@@ -458,28 +462,31 @@ bool* Gore::Engine::createPoints(SDL_Surface* surf) {
 	return pt;
 }
 //This works fine now
-Gore::TrList Gore::Engine::generatePixelTransforms(spxp& spritelist) {
+Gore::TrList Gore::Engine::generatePixelTransforms(Gore::FowardList<SDL_Surface*>& spritelist) {
 	TrList list = NULL;
-	spxp ptr = spritelist;
-	spxp bef = NULL;
+	Gore::FowardList<SDL_Surface*> ptr = spritelist;
+	//Gore::FowardList<SDL_Surface*> bef ;
 	//getting last frame so we can reset frame with first frame data
-	while (ptr != NULL) {
-		bef = ptr;
-		ptr = ptr->next;
+	FObj<SDL_Surface*>* pt = ptr.getHead();
+	FObj<SDL_Surface*>* bef = nullptr;
+	while (pt != nullptr) {
+		bef = pt;
+		pt = pt->next;
 	}
-	ptr = spritelist;
-	SDL_Surface* prev = bef->current;
+	//ptr = spritelist;
+	pt = ptr.getHead();
+	SDL_Surface* prev = *bef->current;
 	//first transform needs to be differences between last frame and first
-	while (ptr != NULL) {
+	while (pt != NULL) {
 		PixelTransform* p = new PixelTransform;
 		size_t size = 0;
 		std::vector<int>xs;
 		std::vector<int>ys;
 		std::vector<Uint32>cols;
 		//parse difference from previous frame
-		for (int i = 0; i < ptr->current->h; i++) {
-			for (int j = 0; j < ptr->current->w; j++) {
-				Uint32 curcol = GetPixelSurface(ptr->current, &i, &j);
+		for (int i = 0; i < (*pt->current)->h; i++) {
+			for (int j = 0; j < (*pt->current)->w; j++) {
+				Uint32 curcol = GetPixelSurface(*pt->current, &i, &j);
 				Uint32 prevcol = GetPixelSurface(prev, &i, &j);
 				if (curcol != prevcol) {
 					xs.push_back(j);
@@ -508,11 +515,11 @@ Gore::TrList Gore::Engine::generatePixelTransforms(spxp& spritelist) {
 		p->size = size;
 		p->next = list;
 		list = p;
-		prev = ptr->current;
-		if (ptr->next == NULL) {
-			bef = ptr;
+		prev = *pt->current;
+		if (pt->next == NULL) {
+			bef = pt;
 		}
-		ptr = ptr->next;
+		pt = pt->next;
 	}
 	return list;
 }
@@ -533,12 +540,13 @@ void Gore::Engine::switchTranformFrames(SDL_Surface* surf, TrList& frames, TrLis
 			frames = begin;
 		}
 }
-SDL_Surface* Gore::Engine::Engine::initTransformSurf(spxp& head) {
-	SDL_Surface* surf = SDL_CreateRGBSurfaceWithFormat(0, head->current->w, head->current->h, 32, SDL_PIXELFORMAT_RGBA8888);
+SDL_Surface* Gore::Engine::Engine::initTransformSurf(Gore::FowardList<SDL_Surface*>& head) {
+	Gore::FObj<SDL_Surface*>* ptr = head.getHead();
+	SDL_Surface* surf = SDL_CreateRGBSurfaceWithFormat(0, (*ptr->current)->w, (*ptr->current)->h, 32, SDL_PIXELFORMAT_RGBA8888);
 	clearSurface(surf);
 	for (int i = 0; i < surf->h; i++) {
 		for (int j = 0; j < surf->w; j++) {
-			Uint32 col = GetPixelSurface(head->current, &i, &j);
+			Uint32 col = GetPixelSurface(*ptr->current, &i, &j);
 			SetPixelSurface(surf, &i, &j, &col);
 		}
 	}

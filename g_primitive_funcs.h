@@ -317,6 +317,9 @@ namespace Gore {
 				c++;
 			}
 		}
+		FObj<W>* getHead() {
+			return object;
+		}
 	};
 	template<typename F>
 	struct FBObj {

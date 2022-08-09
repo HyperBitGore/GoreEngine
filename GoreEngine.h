@@ -58,7 +58,7 @@ namespace Gore {
 		}
 	};
 	
-	struct TexListMem {
+	/*struct TexListMem {
 		SDL_Texture* current;
 		TexListMem* next;
 		std::string name;
@@ -69,7 +69,7 @@ namespace Gore {
 		SpriteListMem* next;
 		std::string name;
 	};
-	typedef SpriteListMem* spxp;
+	typedef SpriteListMem* spxp;*/
 	struct Point {
 		int x;
 		int y;
@@ -96,11 +96,11 @@ namespace Gore {
 	class Engine {
 	public:
 		//Texture lists
-		static void insertTex(TexListMem*& tex, SDL_Texture* current, std::string name);
-		static SDL_Texture* findTex(texp head, std::string name);
+		//static void insertTex(TexListMem*& tex, SDL_Texture* current, std::string name);
+		//static SDL_Texture* findTex(texp head, std::string name);
 		//Surface lists
-		static void insertSprite(SpriteListMem*& sp, SDL_Surface* surf, std::string name);
-		static SDL_Surface* findSprite(spxp sp, std::string name);
+		//static void insertSprite(SpriteListMem*& sp, SDL_Surface* surf, std::string name);
+		//static SDL_Surface* findSprite(spxp sp, std::string name);
 		//pixel manipulation
 		static void SetPixelSurface(SDL_Surface* surf, int* y, int* x, Uint32* pixel);
 		static void SetPixelSurface(SDL_Surface* surf, int y, int x, Uint32 pixel);
@@ -127,11 +127,11 @@ namespace Gore {
 		//image loading
 		static SDL_Surface* loadPNG(std::string name, SDL_PixelFormatEnum format, int w, int h);
 		static SDL_Surface* LoadBMP(const char* file, SDL_PixelFormatEnum format);
-		static texp& loadTextureList(std::vector<std::string> names, std::vector<unsigned int> widths, std::vector<unsigned int> heights, SDL_PixelFormatEnum format, SDL_Renderer* rend, std::string filepath = "NULL");
-		static spxp& loadSpriteList(std::vector<std::string> names, std::vector<unsigned int> widths, std::vector<unsigned int> heights, SDL_PixelFormatEnum format, std::string filepath = "NULL");
+		static Gore::FowardList<SDL_Texture*>& loadTextureList(std::vector<std::string> names, std::vector<unsigned int> widths, std::vector<unsigned int> heights, SDL_PixelFormatEnum format, SDL_Renderer* rend, std::string filepath = "NULL");
+		static  Gore::FowardList<SDL_Surface*>& loadSpriteList(std::vector<std::string> names, std::vector<unsigned int> widths, std::vector<unsigned int> heights, SDL_PixelFormatEnum format, std::string filepath = "NULL");
 		//Text functions
-		static void mapTextTextures(int start, texp& out, texp& input);
-		static void drawText(SDL_Renderer* rend, texp& texthead, std::string text, int x, int y, int w, int h);
+		static void mapTextTextures(int start, Gore::FowardList<SDL_Texture*>& out, Gore::FowardList<SDL_Texture*>& input);
+		static void drawText(SDL_Renderer* rend, Gore::FowardList<SDL_Texture*>& texthead, std::string text, int x, int y, int w, int h);
 		//misc utility
 		static Point raycast2DPixel(SDL_Surface* surf, int sx, int sy, float angle, int step);
 		static SDL_Surface* createCircle(int w, int h, SDL_Color startcolor);
@@ -142,9 +142,9 @@ namespace Gore {
 		static void deserilizeStruct(char* dest, char* data, int size);
 		//point system
 		static bool* createPoints(SDL_Surface* surf);
-		static TrList generatePixelTransforms(spxp& spritelist);
+		static TrList generatePixelTransforms(Gore::FowardList<SDL_Surface*>& spritelist);
 		static void switchTranformFrames(SDL_Surface* surf, TrList& frames, TrList& begin);
-		static SDL_Surface* initTransformSurf(spxp& head);
+		static SDL_Surface* initTransformSurf(Gore::FowardList<SDL_Surface*>& head);
 		//misc
 		static float trajX(float deg);
 		//Takes in degrees return radians
@@ -388,18 +388,18 @@ namespace Gore {
 		double movetime = 0;
 		bool erase;
 		SDL_Rect rect;
-		Gore::texp bhead;
-		Gore::texp head;
+		Gore::FowardList<SDL_Texture*> head;
+		Gore::FObj<SDL_Texture*>* ptr;
 		Uint8 alpha = 255;
 	public:
-		Particle() { rangehigh = 0; rangelow = 0; x = 0; y = 0; trajx = 0; trajy = 0; rect = { 0, 0, 0, 0 }; head = NULL; bhead = head; erase = false; }
-		Particle(float cx, float cy, int rangel, int rangeh, SDL_Rect crect, Gore::texp list) { rangehigh = rangeh; rangelow = rangel; x = cx; y = cy; trajx = 0; trajy = 0; rect = crect; head = list; bhead = head; erase = false; };
+		Particle() { rangehigh = 0; rangelow = 0; x = 0; y = 0; trajx = 0; trajy = 0; rect = { 0, 0, 0, 0 }; erase = false; ptr = head.getHead(); }
+		Particle(float cx, float cy, int rangel, int rangeh, SDL_Rect crect, Gore::FowardList<SDL_Texture*> list) { rangehigh = rangeh; rangelow = rangel; x = cx; y = cy; trajx = 0; trajy = 0; rect = crect; head = list; ptr = head.getHead(); erase = false; };
 		virtual void draw(SDL_Renderer* rend) {
-			SDL_SetTextureAlphaMod(head->current, alpha);
+			SDL_SetTextureAlphaMod(*ptr->current, alpha);
 			rect.x = x;
 			rect.y = y;
-			SDL_RenderCopy(rend, head->current, NULL, &rect);
-			SDL_SetTextureAlphaMod(head->current, 0);
+			SDL_RenderCopy(rend, *ptr->current, NULL, &rect);
+			SDL_SetTextureAlphaMod(*ptr->current, 0);
 		}
 		virtual void update(double* delta) {
 			animtime += *delta;
@@ -410,14 +410,14 @@ namespace Gore {
 				movetime = 0;
 			}
 			if (animtime > 0.1) {
-				head = head->next;
+				ptr = ptr->next;
 				alpha -= 5;
 				if (alpha <= 0) {
 					erase = true;
 					alpha = 0;
 				}
-				if (head == NULL) {
-					head = bhead;
+				if (ptr == nullptr) {
+					ptr = head.getHead();
 				}
 				animtime = 0;
 			}
@@ -795,257 +795,5 @@ namespace Gore {
 			}
 		};
 
-
-		/*template<typename TP>
-		struct QuadElt {
-			//actual data
-			TP data;
-
-			//bounder of element, not even needed
-			Gore::Bounder b;
-		};
-		struct QuadEltNode {
-			//index that points to next element
-			int next;
-
-			//index to element in element list
-			int index;
-
-			//if element needs to be moved
-			bool move;
-		};
-
-		//instead of using array here use a single index which will be a "pointer" to a begin point in node vector, which we can then add +1, +2, +3, 
-		//to get rest of elements
-		struct QuadNode {
-			//first index to child, -1 if no children
-			int32_t child;
-
-			//mumber of elements in node
-			int32_t count;
-
-			//used to calculate bounder based on depth of tree search
-			Gore::Point p;
-
-			//index to elt node, which begins this nodes elments
-			int eltn_index;
-		};
-		//this is so broken. Move and remove both are broken, and insert is broken too
-		template<class T>
-		class QuadTree {
-		public:
-			//freelist containing the elements
-			Gore::FreeList<QuadElt<T>> elts;
-			//stores all element nodes
-			Gore::FreeList<QuadEltNode> elt_nodes;
-
-			//stores all nodes in tree, first node is always root
-			std::vector<QuadNode> nodes;
-
-			//size of root bounder
-			Gore::Bounder root_rect;
-
-			//index of first free node to be reclaimed as 4 contigous nodes at once. -1 is freelist empty
-			int free_node;
-			//the max depth
-			int m_depth;
-		public:
-			QuadTree(int md, Gore::Bounder rt) {
-				m_depth = md;
-				//nodes are inserted 4 at a time use this to find free point where free
-				free_node = -1;
-				root_rect = rt;
-				QuadNode no;
-				no.p = { (int)rt.x, (int)rt.y };
-				no.count = 0;
-				no.eltn_index = -1;
-				no.child = -1;
-				nodes.push_back(no);
-			}
-			QuadNode* search(int node, Gore::Bounder b, int32_t dp) {
-				//recursive search into nodes
-				QuadNode* out = &nodes[node];
-				QuadNode* nd = &nodes[node];
-				Gore::Bounder tb(nd->p.x, nd->p.y, root_rect.w >> dp, root_rect.h >> dp);
-				dp++;
-				if (!tb.contains(b)) {
-					return NULL;
-				}
-				if (dp + 1 <= m_depth) {
-					Gore::Bounder bos(nd->p.x, nd->p.y, tb.w >> 1, tb.h >> 1);
-					for (int i = 0; i < 4; i++) {
-						switch (i) {
-						case 1:
-							bos = Gore::Bounder(nd->p.x + (tb.w >> 1), nd->p.y, tb.w >> 1, tb.h >> 1);
-							break;
-						case 2:
-							bos = Gore::Bounder(nd->p.x, nd->p.y + (tb.h >> 1), tb.w >> 1, tb.h >> 1);
-							break;
-						case 3:
-							bos = Gore::Bounder(nd->p.x + (tb.w >> 1), nd->p.y + (tb.h >> 1), tb.w >> 1, tb.h >> 1);
-							break;
-						}
-						if (bos.contains(b)) {
-							if (nd->child != -1) {
-								out = &nodes[nd->child + i];
-								QuadNode* tp = search(nd->child + i, b, dp);
-								if (tp != NULL) {
-									out = tp;
-								}
-							}
-							else {
-								//generate the node
-								for (int j = 0; j < 4; j++) {
-									QuadNode np;
-									np.p = { bos.x, bos.y };
-									np.child = -1;
-									np.count = 0;
-									np.eltn_index = -1;
-									switch (j) {
-									case 0:
-										np.p.x = bos.x;
-										np.p.y = bos.y;
-										break;
-									case 1:
-										np.p.x = (bos.w > 0) ? bos.x + (bos.w >> 1) : 0;
-										np.p.y = bos.y;
-										break;
-									case 2:
-										np.p.x = bos.x;
-										np.p.y = (bos.y > 0) ? bos.y + (bos.h >> 1) : 0;
-										break;
-									case 3:
-										np.p.x = (bos.w > 0) ? bos.x + (bos.w >> 1) : 0;
-										np.p.y = (bos.y > 0) ? bos.y + (bos.h >> 1) : 0;
-										break;
-									}
-									nodes.push_back(np);
-								}
-								nodes[node].child = nodes.size() - 4;
-								out = &nodes[nodes[node].child + i];
-								QuadNode* tp = search(nodes[node].child + i, b, dp);
-								if (tp != NULL) {
-									out = tp;
-								}
-							}
-							return out;
-						}
-					}
-				}
-				return out;
-			}
-			//insert element into tree
-			void insert(T in, Gore::Bounder b) {
-				QuadElt<T> nop = { in, b };
-				QuadNode* nt = search(0, b, 0);
-				if (nt != NULL) {
-					//add into returned node
-					QuadEltNode np;
-					np.index = elts.insert(nop);
-					np.next = nt->eltn_index;
-					np.move = false;
-					nt->eltn_index = elt_nodes.insert(np);
-					nt->count++;
-					return;
-				}
-				//add into root node
-				QuadEltNode np;
-				np.index = elts.insert(nop);
-				np.next = nodes[0].eltn_index;
-				np.move = false;
-				nodes[0].eltn_index = elt_nodes.insert(np);
-				nodes[0].count++;
-
-			}
-			//has memory leak issue
-			void remove(int index, QuadNode* nt) {
-				//nullify current elt index
-				//try and remove any branching
-				int der = elt_nodes[index].next;
-				if (nt->count == 1) {
-					nt->eltn_index = -1;
-					elt_nodes.erase(index);
-				}
-				else if (der != -1) {
-					QuadEltNode* npt = &elt_nodes[der];
-					elt_nodes[index].index = npt->index;
-					elt_nodes[index].next = npt->next;
-					elt_nodes.erase(der);
-				}
-				else {
-					//think this is creating problems with deleting zero
-					elt_nodes[index].index = -1;
-					elt_nodes[index].next = -1;
-					//elt_nodes.erase(index);
-				}
-				nt->count--;
-				if (nt->count <= 0) {
-					nt->eltn_index = -1;
-				}
-			}
-			void erase(int elt_index) {
-				elts.erase(elt_index);
-			}
-			//this is broken
-			void move(int n_index, int index) {
-				//just move index pointer to different tree
-				int elt_in = elt_nodes[index].index;
-				remove(index, &nodes[n_index]);
-				QuadNode* ntp = search(0, elts[elt_in].b, 0);
-				if (ntp == NULL) {
-					return;
-				}
-				QuadEltNode np;
-				np.index = elt_in;
-				np.next = ntp->eltn_index;
-				np.move = false;
-				ntp->eltn_index = elt_nodes.insert(np);
-				ntp->count++;
-			}
-			//will move elts that need to be moved
-			void clean_recur(int n_index) {
-				int inp = nodes[n_index].eltn_index;
-				while (inp != -1) {
-					if (elt_nodes[inp].index != -1 && elt_nodes[inp].move) {
-						move(n_index, inp);
-					}
-					inp = elt_nodes[inp].next;
-				}
-				int i = 0;
-				(nodes[n_index].child != -1) ? i = 0 : i = 4;
-				for (i; i < 4; i++) {
-					clean_recur(nodes[n_index].child + i);
-				}
-			}
-
-			void cleanup() {
-				clean_recur(0);
-			}
-
-			int size() {
-				return elts.size();
-			}
-			void searchNodes(QuadNode* node, Gore::Bounder b, std::vector<QuadNode*>& nds, size_t* depth) {
-				if (b.contains(Gore::Bounder(node->p.x, node->p.y, root_rect.w >> *depth, root_rect.h >> *depth))) {
-					(*depth)++;
-					if (node->count > 0) {
-						nds.push_back(node);
-					}
-					for (int i = 0; i < 4; i++) {
-						if (nodes[node->child + i] != -1) {
-							searchNodes(&nodes[node->child + i], b, nds, depth);
-						}
-					}
-				}
-			}
-
-			std::vector<QuadNode*> getNodes(Gore::Bounder b) {
-				//traverse tree and check if nodes are contained in checking area
-				std::vector<QuadNode*> nds;
-				size_t depth = 0;
-				searchNodes(&nodes[0], b, nds, &depth);
-				return nds;
-			}
-		};*/
 	}
 }
