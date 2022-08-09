@@ -127,11 +127,11 @@ namespace Gore {
 		//image loading
 		static SDL_Surface* loadPNG(std::string name, SDL_PixelFormatEnum format, int w, int h);
 		static SDL_Surface* LoadBMP(const char* file, SDL_PixelFormatEnum format);
-		static Gore::FowardList<SDL_Texture*>& loadTextureList(std::vector<std::string> names, std::vector<unsigned int> widths, std::vector<unsigned int> heights, SDL_PixelFormatEnum format, SDL_Renderer* rend, std::string filepath = "NULL");
-		static  Gore::FowardList<SDL_Surface*>& loadSpriteList(std::vector<std::string> names, std::vector<unsigned int> widths, std::vector<unsigned int> heights, SDL_PixelFormatEnum format, std::string filepath = "NULL");
+		static Gore::ForwardList<SDL_Texture*>& loadTextureList(std::vector<std::string> names, std::vector<unsigned int> widths, std::vector<unsigned int> heights, SDL_PixelFormatEnum format, SDL_Renderer* rend, std::string filepath = "NULL");
+		static  Gore::ForwardList<SDL_Surface*>& loadSpriteList(std::vector<std::string> names, std::vector<unsigned int> widths, std::vector<unsigned int> heights, SDL_PixelFormatEnum format, std::string filepath = "NULL");
 		//Text functions
-		static void mapTextTextures(int start, Gore::FowardList<SDL_Texture*>& out, Gore::FowardList<SDL_Texture*>& input);
-		static void drawText(SDL_Renderer* rend, Gore::FowardList<SDL_Texture*>& texthead, std::string text, int x, int y, int w, int h);
+		static void mapTextTextures(int start, Gore::ForwardList<SDL_Texture*>& out, Gore::ForwardList<SDL_Texture*>& input);
+		static void drawText(SDL_Renderer* rend, Gore::ForwardList<SDL_Texture*>& texthead, std::string text, int x, int y, int w, int h);
 		//misc utility
 		static Point raycast2DPixel(SDL_Surface* surf, int sx, int sy, float angle, int step);
 		static SDL_Surface* createCircle(int w, int h, SDL_Color startcolor);
@@ -142,9 +142,9 @@ namespace Gore {
 		static void deserilizeStruct(char* dest, char* data, int size);
 		//point system
 		static bool* createPoints(SDL_Surface* surf);
-		static TrList generatePixelTransforms(Gore::FowardList<SDL_Surface*>& spritelist);
+		static TrList generatePixelTransforms(Gore::ForwardList<SDL_Surface*>& spritelist);
 		static void switchTranformFrames(SDL_Surface* surf, TrList& frames, TrList& begin);
-		static SDL_Surface* initTransformSurf(Gore::FowardList<SDL_Surface*>& head);
+		static SDL_Surface* initTransformSurf(Gore::ForwardList<SDL_Surface*>& head);
 		//misc
 		static float trajX(float deg);
 		//Takes in degrees return radians
@@ -388,12 +388,12 @@ namespace Gore {
 		double movetime = 0;
 		bool erase;
 		SDL_Rect rect;
-		Gore::FowardList<SDL_Texture*> head;
+		Gore::ForwardList<SDL_Texture*> head;
 		Gore::FObj<SDL_Texture*>* ptr;
 		Uint8 alpha = 255;
 	public:
 		Particle() { rangehigh = 0; rangelow = 0; x = 0; y = 0; trajx = 0; trajy = 0; rect = { 0, 0, 0, 0 }; erase = false; ptr = head.getHead(); }
-		Particle(float cx, float cy, int rangel, int rangeh, SDL_Rect crect, Gore::FowardList<SDL_Texture*> list) { rangehigh = rangeh; rangelow = rangel; x = cx; y = cy; trajx = 0; trajy = 0; rect = crect; head = list; ptr = head.getHead(); erase = false; };
+		Particle(float cx, float cy, int rangel, int rangeh, SDL_Rect crect, Gore::ForwardList<SDL_Texture*> list) { rangehigh = rangeh; rangelow = rangel; x = cx; y = cy; trajx = 0; trajy = 0; rect = crect; head = list; ptr = head.getHead(); erase = false; };
 		virtual void draw(SDL_Renderer* rend) {
 			SDL_SetTextureAlphaMod(*ptr->current, alpha);
 			rect.x = x;

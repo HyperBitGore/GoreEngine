@@ -19,7 +19,7 @@ struct BASE {
 //can't use base particle class anymore because fire overrides it here, at least the draw function
 class Fire : public Gore::Particle {
 public:
-	Fire(float cx, float cy, int rangel, int rangeh, SDL_Rect crect, Gore::FowardList<SDL_Texture*>& list) { rangehigh = rangeh; rangelow = rangel; x = cx; y = cy; trajx = 0; trajy = 0; rect = crect; head = list; ptr = head.getHead(); erase = false; };
+	Fire(float cx, float cy, int rangel, int rangeh, SDL_Rect crect, Gore::ForwardList<SDL_Texture*>& list) { rangehigh = rangeh; rangelow = rangel; x = cx; y = cy; trajx = 0; trajy = 0; rect = crect; head = list; ptr = head.getHead(); erase = false; };
 	void update(double* delta) {
 		animtime += *delta;
 		movetime += *delta;
@@ -120,7 +120,7 @@ private:
 public:
 	int cur_cell = 0;
 	Gore::FPoint g_id;
-	Water(float cx, float cy, int rangel, int rangeh, SDL_Rect crect, Gore::FowardList<SDL_Texture*>& list) { rangehigh = rangeh; rangelow = rangel; x = cx; y = cy; trajx = 0; trajy = 0; rect = crect; head = list; ptr = head.getHead(); erase = false; };
+	Water(float cx, float cy, int rangel, int rangeh, SDL_Rect crect, Gore::ForwardList<SDL_Texture*>& list) { rangehigh = rangeh; rangelow = rangel; x = cx; y = cy; trajx = 0; trajy = 0; rect = crect; head = list; ptr = head.getHead(); erase = false; };
 	void draw(SDL_Renderer* rend) {
 		SDL_SetTextureColorMod(*ptr->current, 150, 85, 255);
 		SDL_SetTextureAlphaMod(*ptr->current, alpha);
@@ -190,8 +190,8 @@ int main() {
 	Gore::Engine::clearSurface(surface);
 	Entity player = { 200, 300, 16737380 };
 	SDL_Color yellow = { 255, 100, 100 };
-	Gore::FowardList<SDL_Texture*> elist = Gore::Engine::loadTextureList({ "enemy1.png", "enemy2.png", "enemy3.png", "enemy4.png", "enemy5.png" }, { 50, 50, 50, 50, 50 }, { 100, 100, 100, 100, 100 }, SDL_PIXELFORMAT_RGBA8888, rend, "TexListExample/");
-	Gore::FowardList<SDL_Texture*> textlist = Gore::Engine::loadTextureList({ "CK_StarGlowing_Z.png", "CK_StarGlowing_Y.png","CK_StarGlowing_X.png","CK_StarGlowing_W.png", "CK_StarGlowing_V.png"
+	Gore::ForwardList<SDL_Texture*> elist = Gore::Engine::loadTextureList({ "enemy1.png", "enemy2.png", "enemy3.png", "enemy4.png", "enemy5.png" }, { 50, 50, 50, 50, 50 }, { 100, 100, 100, 100, 100 }, SDL_PIXELFORMAT_RGBA8888, rend, "TexListExample/");
+	Gore::ForwardList<SDL_Texture*> textlist = Gore::Engine::loadTextureList({ "CK_StarGlowing_Z.png", "CK_StarGlowing_Y.png","CK_StarGlowing_X.png","CK_StarGlowing_W.png", "CK_StarGlowing_V.png"
 		, "CK_StarGlowing_U.png", "CK_StarGlowing_T.png", "CK_StarGlowing_S.png", "CK_StarGlowing_R.png", "CK_StarGlowing_Q.png", "CK_StarGlowing_P.png",
 		"CK_StarGlowing_O.png", "CK_StarGlowing_N.png", "CK_StarGlowing_M.png", "CK_StarGlowing_L.png", "CK_StarGlowing_K.png", "CK_StarGlowing_J.png", "CK_StarGlowing_I.png",
 		"CK_StarGlowing_H.png", "CK_StarGlowing_G.png", "CK_StarGlowing_F.png", "CK_StarGlowing_E.png","CK_StarGlowing_D.png", "CK_StarGlowing_C.png", "CK_StarGlowing_B.png",
@@ -199,7 +199,7 @@ int main() {
 		{ 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, }
 		, { 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, }, SDL_PIXELFORMAT_RGBA8888, rend,
 		"TextExample/");
-	Gore::FowardList<SDL_Texture*> alph;
+	Gore::ForwardList<SDL_Texture*> alph;
 	Gore::Engine::mapTextTextures(97, alph, textlist);
 	std::cout << Gore::Engine::ConvertColorToUint32RGBA({ 255, 100, 100 }, surface->format) << std::endl;
 	SDL_Surface* pngsurf = Gore::Engine::loadPNG("bplayer1.png", SDL_PIXELFORMAT_RGB888, 50, 100);
@@ -235,13 +235,13 @@ int main() {
 	std::cout << a.x << std::endl;
 	//animation/destructio system related
 	bool* points = Gore::Engine::createPoints(imgsurf);
-	Gore::FowardList<SDL_Surface*> animlist = Gore::Engine::loadSpriteList({ "enem1_1.png", "enem1_2.png", "enem1_3.png", "enem1_4.png"}, {30, 30, 30, 30}, {50, 50, 50, 50}, SDL_PIXELFORMAT_RGBA8888, "AnimationTest/");
+	Gore::ForwardList<SDL_Surface*> animlist = Gore::Engine::loadSpriteList({ "enem1_1.png", "enem1_2.png", "enem1_3.png", "enem1_4.png"}, {30, 30, 30, 30}, {50, 50, 50, 50}, SDL_PIXELFORMAT_RGBA8888, "AnimationTest/");
 	SDL_Surface* animsurf = Gore::Engine::initTransformSurf(animlist);
 	Gore::TrList translist = Gore::Engine::generatePixelTransforms(animlist);
 	Gore::TrList transbegin = translist;
 	double animtime = 0;
 	//particle stuff
-	Gore::FowardList<SDL_Texture*> particelist1 = Gore::Engine::loadTextureList({ "particle1.png", "particle2.png" }, { 5, 5 }, {5, 5}, SDL_PIXELFORMAT_RGBA8888, rend, "ParticleTest/");
+	Gore::ForwardList<SDL_Texture*> particelist1 = Gore::Engine::loadTextureList({ "particle1.png", "particle2.png" }, { 5, 5 }, {5, 5}, SDL_PIXELFORMAT_RGBA8888, rend, "ParticleTest/");
 	Gore::FObj<SDL_Texture*>* ttp = particelist1.getHead();
 	while (ttp != nullptr) {
 		SDL_BlendMode bp = SDL_BLENDMODE_BLEND;

@@ -233,8 +233,8 @@ SDL_Surface* Gore::Engine::LoadBMP(const char* file, SDL_PixelFormatEnum format)
 }
 
 //Loads textures into memory as a linked list. Keep width/heights even with names or you'll get an error
-Gore::FowardList<SDL_Texture*>& Gore::Engine::loadTextureList(std::vector<std::string> names, std::vector<unsigned int> widths, std::vector<unsigned int> heights, SDL_PixelFormatEnum format, SDL_Renderer* rend, std::string filepath) {
-	Gore::FowardList<SDL_Texture*> head;
+Gore::ForwardList<SDL_Texture*>& Gore::Engine::loadTextureList(std::vector<std::string> names, std::vector<unsigned int> widths, std::vector<unsigned int> heights, SDL_PixelFormatEnum format, SDL_Renderer* rend, std::string filepath) {
+	Gore::ForwardList<SDL_Texture*> head;
 	int j = 0;
 	for (auto& i : names) {
 		std::string t = i;
@@ -250,8 +250,8 @@ Gore::FowardList<SDL_Texture*>& Gore::Engine::loadTextureList(std::vector<std::s
 	}
 	return head;
 }
-Gore::FowardList<SDL_Surface*>& Gore::Engine::loadSpriteList(std::vector<std::string> names, std::vector<unsigned int> widths, std::vector<unsigned int> heights, SDL_PixelFormatEnum format, std::string filepath) {
-	Gore::FowardList<SDL_Surface*> head;
+Gore::ForwardList<SDL_Surface*>& Gore::Engine::loadSpriteList(std::vector<std::string> names, std::vector<unsigned int> widths, std::vector<unsigned int> heights, SDL_PixelFormatEnum format, std::string filepath) {
+	Gore::ForwardList<SDL_Surface*> head;
 	int j = 0;
 	for (auto& i : names) {
 		std::string t = i;
@@ -269,7 +269,7 @@ Gore::FowardList<SDL_Surface*>& Gore::Engine::loadSpriteList(std::vector<std::st
 
 //Text functions
 //Input starting integer number for character then will loop through till it hits end of input whole time adding to out
-void Gore::Engine::mapTextTextures(int start, Gore::FowardList<SDL_Texture*>& out, Gore::FowardList<SDL_Texture*>& input) {
+void Gore::Engine::mapTextTextures(int start, Gore::ForwardList<SDL_Texture*>& out, Gore::ForwardList<SDL_Texture*>& input) {
 	Gore::FObj<SDL_Texture*>* t = input.getHead();
 	while (t != nullptr) {
 		std::string temp;
@@ -282,7 +282,7 @@ void Gore::Engine::mapTextTextures(int start, Gore::FowardList<SDL_Texture*>& ou
 }
 
 //Width and height for individual letters
-void Gore::Engine::drawText(SDL_Renderer* rend, Gore::FowardList<SDL_Texture*>& texthead, std::string text, int x, int y, int w, int h) {
+void Gore::Engine::drawText(SDL_Renderer* rend, Gore::ForwardList<SDL_Texture*>& texthead, std::string text, int x, int y, int w, int h) {
 	int sx = x;
 	int sy = y;
 	for (auto& i : text) {
@@ -462,10 +462,10 @@ bool* Gore::Engine::createPoints(SDL_Surface* surf) {
 	return pt;
 }
 //This works fine now
-Gore::TrList Gore::Engine::generatePixelTransforms(Gore::FowardList<SDL_Surface*>& spritelist) {
+Gore::TrList Gore::Engine::generatePixelTransforms(Gore::ForwardList<SDL_Surface*>& spritelist) {
 	TrList list = NULL;
-	Gore::FowardList<SDL_Surface*> ptr = spritelist;
-	//Gore::FowardList<SDL_Surface*> bef ;
+	Gore::ForwardList<SDL_Surface*> ptr = spritelist;
+	//Gore::ForwardList<SDL_Surface*> bef ;
 	//getting last frame so we can reset frame with first frame data
 	FObj<SDL_Surface*>* pt = ptr.getHead();
 	FObj<SDL_Surface*>* bef = nullptr;
@@ -540,7 +540,7 @@ void Gore::Engine::switchTranformFrames(SDL_Surface* surf, TrList& frames, TrLis
 			frames = begin;
 		}
 }
-SDL_Surface* Gore::Engine::Engine::initTransformSurf(Gore::FowardList<SDL_Surface*>& head) {
+SDL_Surface* Gore::Engine::Engine::initTransformSurf(Gore::ForwardList<SDL_Surface*>& head) {
 	Gore::FObj<SDL_Surface*>* ptr = head.getHead();
 	SDL_Surface* surf = SDL_CreateRGBSurfaceWithFormat(0, (*ptr->current)->w, (*ptr->current)->h, 32, SDL_PIXELFORMAT_RGBA8888);
 	clearSurface(surf);
