@@ -5,8 +5,10 @@
 #include <SDL.h>
 #include <array>
 #include <list>
+#include <ft2build.h>
 #include "lodepng.h"
 #include "g_primitive_funcs.h"
+#include FT_FREETYPE_H
 
 //Didn't want to include windows header to do resource exe inclusion so just follow along with this page if you want to do this. 
 //https://stackoverflow.com/questions/22151099/including-data-file-into-c-project
@@ -57,19 +59,6 @@ namespace Gore {
 			return static_cast<int>(items.size());
 		}
 	};
-	
-	/*struct TexListMem {
-		SDL_Texture* current;
-		TexListMem* next;
-		std::string name;
-	};
-	typedef TexListMem* texp;
-	struct SpriteListMem {
-		SDL_Surface* current;
-		SpriteListMem* next;
-		std::string name;
-	};
-	typedef SpriteListMem* spxp;*/
 	struct Point {
 		int x;
 		int y;
@@ -93,14 +82,63 @@ namespace Gore {
 	public:
 		double getDelta();
 	};
+	class Text {
+	private:
+		struct FontObj {
+			FT_Face font;
+			Gore::ForwardList<SDL_Texture*> texlist;
+		};
+		SDL_Renderer* rend;
+		FT_Library ft = nullptr;
+		Gore::ForwardList<FontObj> fonts;
+	public:
+		Text(SDL_Renderer* re) {
+			if (FT_Init_FreeType(&ft)) {
+				std::cout << "ERROR::FREETYPE: Could not init FreeType Library" << std::endl;
+			}
+			rend = re;
+		}
+		//loads a font into the text object will override any previously loaded font
+		void loadFont(std::string file, int size, SDL_Color color) {
+			FT_Face font = nullptr;
+			if (FT_New_Face(ft, file.c_str(), 0, &font)) {
+				std::cout << "ERROR::FREETYPE: Failed to load font" << std::endl;
+				return;
+			}
+			Gore::ForwardList<SDL_Texture*> list;
+			FT_Set_Pixel_Sizes(font, 0, size);
+			for (unsigned char i = 0; i < 128; i++) {
+				FT_Load_Char(font, i, FT_LOAD_RENDER);
+				SDL_Surface* surf = SDL_CreateRGBSurfaceFrom(font->glyph->bitmap.buffer, font->glyph->bitmap.width, font->glyph->bitmap.rows, 8, font->glyph->bitmap.pitch, 0x000000ff, 0x0000ff00, 0x00ff0000, 0xff000000);
+				//have to create a color surface from surf, and then push that into tex
+				SDL_Texture* tex = SDL_CreateTextureFromSurface(rend, surf);
+				SDL_FreeSurface(surf);
+				std::string temp;
+				temp.push_back(i);
+				list.insert(tex, temp);
+			}
+			fonts.insert({ font, list}, file);
+		}
+		void drawText(std::string text, std::string fontfile, int x, int y, int fontsize) {
+			FontObj* font = fonts.search(fontfile);
+			if (font == nullptr) {
+				std::cerr << "Failed to find font" << std::endl;
+				return;
+			}
+			for (auto& i : text) {
+				std::string temp;
+				temp.push_back(i);
+				SDL_Texture* tex = *font->texlist.search(temp);
+				SDL_Rect rect = { x, y, fontsize, fontsize };
+				SDL_RenderCopy(rend, tex, NULL, &rect);
+				x += fontsize + 1;
+			}
+		}
+
+	};
+
 	class Engine {
 	public:
-		//Texture lists
-		//static void insertTex(TexListMem*& tex, SDL_Texture* current, std::string name);
-		//static SDL_Texture* findTex(texp head, std::string name);
-		//Surface lists
-		//static void insertSprite(SpriteListMem*& sp, SDL_Surface* surf, std::string name);
-		//static SDL_Surface* findSprite(spxp sp, std::string name);
 		//pixel manipulation
 		static void SetPixelSurface(SDL_Surface* surf, int* y, int* x, Uint32* pixel);
 		static void SetPixelSurface(SDL_Surface* surf, int y, int x, Uint32 pixel);
@@ -376,119 +414,88 @@ namespace Gore {
 			}
 		};
 	}
-	class Particle {
-	public:
-		float x;
-		float y;
-		float trajx;
-		float trajy;
-		int rangehigh;
-		int rangelow;
-		double animtime = 0;
-		double movetime = 0;
-		bool erase;
-		SDL_Rect rect;
-		Gore::ForwardList<SDL_Texture*> head;
-		Gore::FObj<SDL_Texture*>* ptr;
-		Uint8 alpha = 255;
-	public:
-		Particle() { rangehigh = 0; rangelow = 0; x = 0; y = 0; trajx = 0; trajy = 0; rect = { 0, 0, 0, 0 }; erase = false; ptr = head.getHead(); }
-		Particle(float cx, float cy, int rangel, int rangeh, SDL_Rect crect, Gore::ForwardList<SDL_Texture*> list) { rangehigh = rangeh; rangelow = rangel; x = cx; y = cy; trajx = 0; trajy = 0; rect = crect; head = list; ptr = head.getHead(); erase = false; };
-		virtual void draw(SDL_Renderer* rend) {
-			SDL_SetTextureAlphaMod(*ptr->current, alpha);
-			rect.x = x;
-			rect.y = y;
-			SDL_RenderCopy(rend, *ptr->current, NULL, &rect);
-			SDL_SetTextureAlphaMod(*ptr->current, 0);
-		}
-		virtual void update(double* delta) {
-			animtime += *delta;
-			movetime += *delta;
-			if (movetime > 0.05) {
-				x += trajx;
-				y += trajy;
-				movetime = 0;
+	namespace Particles {
+		class Particle {
+		public:
+			float x;
+			float y;
+			float trajx;
+			float trajy;
+			int rangehigh;
+			int rangelow;
+			double animtime = 0;
+			double movetime = 0;
+			bool erase;
+			SDL_Rect rect;
+			Gore::ForwardList<SDL_Texture*> head;
+			Gore::FObj<SDL_Texture*>* ptr;
+			Uint8 alpha = 255;
+		public:
+			Particle() { rangehigh = 0; rangelow = 0; x = 0; y = 0; trajx = 0; trajy = 0; rect = { 0, 0, 0, 0 }; erase = false; ptr = head.getHead(); }
+			Particle(float cx, float cy, int rangel, int rangeh, SDL_Rect crect, Gore::ForwardList<SDL_Texture*> list) { rangehigh = rangeh; rangelow = rangel; x = cx; y = cy; trajx = 0; trajy = 0; rect = crect; head = list; ptr = head.getHead(); erase = false; };
+			virtual void draw(SDL_Renderer* rend) {
+				SDL_SetTextureAlphaMod(*ptr->current, alpha);
+				rect.x = x;
+				rect.y = y;
+				SDL_RenderCopy(rend, *ptr->current, NULL, &rect);
+				SDL_SetTextureAlphaMod(*ptr->current, 0);
 			}
-			if (animtime > 0.1) {
-				ptr = ptr->next;
-				alpha -= 5;
-				if (alpha <= 0) {
-					erase = true;
-					alpha = 0;
+			virtual void update(double* delta) {
+				animtime += *delta;
+				movetime += *delta;
+				if (movetime > 0.05) {
+					x += trajx;
+					y += trajy;
+					movetime = 0;
 				}
-				if (ptr == nullptr) {
-					ptr = head.getHead();
-				}
-				animtime = 0;
-			}
-		}
-	};
-
-	class Emitter {
-	private:
-		std::vector<Particle> particles;
-		Particle* p;
-	public:
-		Emitter() { p = NULL; timetospawn = 0.1; }
-		Emitter(Particle* par, double spawntime) { p = par; timetospawn = spawntime; }
-		double ctime = 0;
-		double timetospawn;
-		virtual void spawnParticle() {
-			p->trajx = cos(double(p->rangelow + (std::rand() % (p->rangehigh - p->rangelow + 1))) * M_PI / 180.0);
-			p->trajy = sin(double(p->rangelow + (std::rand() % (p->rangehigh - p->rangelow + 1))) * M_PI / 180.0);
-			particles.push_back(*p);
-		}
-		virtual void update(double* delta, SDL_Renderer* rend) {
-			ctime += *delta;
-			if (ctime > timetospawn) {
-				spawnParticle();
-				ctime = 0;
-			}
-			for (int i = 0; i < particles.size();) {
-				particles[i].update(delta);
-				particles[i].draw(rend);
-				if (particles[i].erase) {
-					particles.erase(particles.begin() + i);
-				}
-				else {
-					i++;
+				if (animtime > 0.1) {
+					ptr = ptr->next;
+					alpha -= 5;
+					if (alpha <= 0) {
+						erase = true;
+						alpha = 0;
+					}
+					if (ptr == nullptr) {
+						ptr = head.getHead();
+					}
+					animtime = 0;
 				}
 			}
-		}
-	};
+		};
 
-
-
-	class Bounder {
-	private:
-	public:
-		int x, y;
-		int w, h;
-		Bounder() { x = 0; y = 0; w = 50; h = 50; }
-		Bounder(int ix, int iy, int iw, int ih) { x = ix; y = iy; w = iw; h = ih; }
-
-		bool contains(float ix, float iy) {
-			return!(ix < x || iy < y || ix >= (x + w) || iy >= (y + h));
-		}
-		bool contains(Bounder b) {
-			//this may not run faster depending on system, but is faster on my AMD ryzen 3600
-			bool ip = false;
-			(b.x >= x) ? ip = true : ip = false;
-			(b.x + b.w < x + w) ? ip = true : ip = false;
-			(b.y >= y) ? ip = true : ip = false;
-			(b.y + b.h < y + h) ? ip = true : ip = false;
-			return ip;
-		}
-		bool overlaps(Bounder b) {
-			bool ip = false;
-			(x < b.x + b.w) ? ip = true : ip = false;
-			(x + w >= b.x) ? ip = true : ip = false;
-			(y < b.y + b.h) ? ip = true : ip = false;
-			(y + h >= b.y) ? ip = true : ip = false;
-			return ip;
-		}
-	};
-
+		class Emitter {
+		private:
+			std::vector<Particle> particles;
+			Particle* p;
+		public:
+			Emitter() { p = NULL; timetospawn = 0.1; }
+			Emitter(Particle* par, double spawntime) { p = par; timetospawn = spawntime; }
+			double ctime = 0;
+			double timetospawn;
+			virtual void spawnParticle() {
+				p->trajx = cos(double(p->rangelow + (std::rand() % (p->rangehigh - p->rangelow + 1))) * M_PI / 180.0);
+				p->trajy = sin(double(p->rangelow + (std::rand() % (p->rangehigh - p->rangelow + 1))) * M_PI / 180.0);
+				particles.push_back(*p);
+			}
+			virtual void update(double* delta, SDL_Renderer* rend) {
+				ctime += *delta;
+				if (ctime > timetospawn) {
+					spawnParticle();
+					ctime = 0;
+				}
+				for (int i = 0; i < particles.size();) {
+					particles[i].update(delta);
+					particles[i].draw(rend);
+					if (particles[i].erase) {
+						particles.erase(particles.begin() + i);
+					}
+					else {
+						i++;
+					}
+				}
+			}
+		};
+	}
 	class TextureDraw {
 	private:
 		SDL_Texture* tex;
@@ -501,6 +508,7 @@ namespace Gore {
 			tex = nullptr;
 			surf = nullptr;
 			pixels = nullptr;
+			rend = nullptr;
 		}
 		TextureDraw(int win, int hin, int depth, Uint32 form, SDL_Renderer* ren) {
 			surf = SDL_CreateRGBSurfaceWithFormat(0, win, hin, depth, form);
@@ -511,7 +519,7 @@ namespace Gore {
 			SDL_UnlockTexture(tex);
 		}
 		~TextureDraw() {
-			SDL_FreeSurface(surf);
+			//SDL_FreeSurface(surf);
 			SDL_DestroyTexture(tex);
 		}
 		//has to be same format as this objects surf
@@ -548,32 +556,35 @@ namespace Gore {
 			Engine::clearTexture(tex, &surf->pitch, surf->w, surf->h);
 		}
 	};
-
-	class ParticleHandler {
+	class Bounder {
 	private:
-		TextureDraw drawt;
-		std::vector<Particle*> particles;
-		int x;
-		int y;
 	public:
-		ParticleHandler(int posx, int posy, SDL_Renderer* rend, int w, int h, int depth, Uint32 pixelformat) {
-			drawt = TextureDraw(w, h, depth, pixelformat, rend);
-			x = posx;
-			y = posy;
+		int x, y;
+		int w, h;
+		Bounder() { x = 0; y = 0; w = 50; h = 50; }
+		Bounder(int ix, int iy, int iw, int ih) { x = ix; y = iy; w = iw; h = ih; }
+
+		bool contains(float ix, float iy) {
+			return!(ix < x || iy < y || ix >= (x + w) || iy >= (y + h));
 		}
-		void addParticle() {
-			
+		bool contains(Bounder b) {
+			//this may not run faster depending on system, but is faster on my AMD ryzen 3600
+			bool ip = false;
+			(b.x >= x) ? ip = true : ip = false;
+			(b.x + b.w < x + w) ? ip = true : ip = false;
+			(b.y >= y) ? ip = true : ip = false;
+			(b.y + b.h < y + h) ? ip = true : ip = false;
+			return ip;
 		}
-		void addEmitter() {
-			
-		}
-		void update() {
-			
+		bool overlaps(Bounder b) {
+			bool ip = false;
+			(x < b.x + b.w) ? ip = true : ip = false;
+			(x + w >= b.x) ? ip = true : ip = false;
+			(y < b.y + b.h) ? ip = true : ip = false;
+			(y + h >= b.y) ? ip = true : ip = false;
+			return ip;
 		}
 	};
-
-
-
 	namespace SpatialAcceleration {
 
 		template<typename W>

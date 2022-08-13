@@ -1,45 +1,5 @@
 #include "GoreEngine.h"
 
-/*void Gore::Engine::insertTex(TexListMem*& tex, SDL_Texture* current, std::string name) {
-	texp t;
-	t = new TexListMem;
-	t->current = current;
-	t->next = tex;
-	t->name = name;
-	tex = t;
-}
-
-SDL_Texture* Gore::Engine::findTex(texp head, std::string name) {
-	texp temp = head;
-	while (temp != NULL) {
-		if (std::strcmp(temp->name.c_str(), name.c_str()) == 0) {
-			return temp->current;
-		}
-		temp = temp->next;
-	}
-	return NULL;
-}
-
-void Gore::Engine::insertSprite(spxp& sp, SDL_Surface* surf, std::string name) {
-	spxp t;
-	t = new SpriteListMem;
-	t->current = surf;
-	t->next = sp;
-	t->name = name;
-	sp = t;
-}
-SDL_Surface* Gore::Engine::findSprite(spxp sp, std::string name) {
-	spxp temp = sp;
-	while (temp != NULL) {
-		if (temp->name.compare(name) == 0) {
-			return temp->current;
-		}
-		temp = temp->next;
-	}
-	return NULL;
-}
-*/
-
 //Pixel manipulation
 void Gore::Engine::SetPixelSurface(SDL_Surface* surf, int* y, int* x, Uint32* pixel) {
 	SDL_LockSurface(surf);

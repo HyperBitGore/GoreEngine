@@ -17,9 +17,11 @@ struct BASE {
 };
 
 //can't use base particle class anymore because fire overrides it here, at least the draw function
-class Fire : public Gore::Particle {
+class Fire : public Gore::Particles::Particle {
+private:
+	Gore::TextureDraw* tdraw;
 public:
-	Fire(float cx, float cy, int rangel, int rangeh, SDL_Rect crect, Gore::ForwardList<SDL_Texture*>& list) { rangehigh = rangeh; rangelow = rangel; x = cx; y = cy; trajx = 0; trajy = 0; rect = crect; head = list; ptr = head.getHead(); erase = false; };
+	Fire(float cx, float cy, int rangel, int rangeh, SDL_Rect crect, Gore::ForwardList<SDL_Texture*>& list, Gore::TextureDraw* tin) { rangehigh = rangeh; rangelow = rangel; x = cx; y = cy; trajx = 0; trajy = 0; rect = crect; head = list; ptr = head.getHead(); erase = false; tdraw = tin; };
 	void update(double* delta) {
 		animtime += *delta;
 		movetime += *delta;
@@ -29,14 +31,11 @@ public:
 			movetime = 0;
 		}
 		if (animtime > 0.1) {
-			ptr = ptr->next;
+			(ptr->next == nullptr) ? ptr = head.getHead() : ptr = ptr->next;
 			alpha -= 5;
 			if (alpha <= 0) {
 				erase = true;
 				alpha = 0;
-			}
-			if (ptr == nullptr) {
-				ptr = head.getHead();
 			}
 			animtime = 0;
 		}
@@ -51,13 +50,14 @@ public:
 		SDL_SetTextureColorMod(*ptr->current, 0, 0, 0);
 	}
 };
-class FireEmitter : public Gore::Emitter {
+class FireEmitter : public Gore::Particles::Emitter {
 private:
 	Fire* fep;
 	Gore::Bounder sc = Gore::Bounder(0.0f, 0.0f, 900, 900);
+	Gore::TextureDraw* tdraw;
 	Gore::SpatialAcceleration::QuadTree<Fire>* rquad = new Gore::SpatialAcceleration::QuadTree<Fire>(Gore::Bounder(0, 0, 800, 800), 8);
 public:
-	FireEmitter(Fire* par, double spawntime) { fep = par; timetospawn = spawntime; ctime = 0; }
+	FireEmitter(Fire* par, double spawntime, Gore::TextureDraw* tin) { fep = par; timetospawn = spawntime; ctime = 0; tdraw = tin; }
 	void spawnParticle() {
 		fep->trajx = cos(double(fep->rangelow + (std::rand() % (fep->rangehigh - fep->rangelow + 1))) * M_PI / 180.0);
 		fep->trajy = sin(double(fep->rangelow + (std::rand() % (fep->rangehigh - fep->rangelow + 1))) * M_PI / 180.0);
@@ -115,12 +115,13 @@ public:
 		}
 	}
 };
-class Water : public Gore::Particle {
+class Water : public Gore::Particles::Particle {
 private:
+	Gore::TextureDraw* tdraw;
 public:
 	int cur_cell = 0;
 	Gore::FPoint g_id;
-	Water(float cx, float cy, int rangel, int rangeh, SDL_Rect crect, Gore::ForwardList<SDL_Texture*>& list) { rangehigh = rangeh; rangelow = rangel; x = cx; y = cy; trajx = 0; trajy = 0; rect = crect; head = list; ptr = head.getHead(); erase = false; };
+	Water(float cx, float cy, int rangel, int rangeh, SDL_Rect crect, Gore::ForwardList<SDL_Texture*>& list, Gore::TextureDraw* tin) { rangehigh = rangeh; rangelow = rangel; x = cx; y = cy; trajx = 0; trajy = 0; rect = crect; head = list; ptr = head.getHead(); erase = false; tdraw = tin; };
 	void draw(SDL_Renderer* rend) {
 		SDL_SetTextureColorMod(*ptr->current, 150, 85, 255);
 		SDL_SetTextureAlphaMod(*ptr->current, alpha);
@@ -132,13 +133,14 @@ public:
 	}
 
 };
-class WaterEmitter : public Gore::Emitter {
+class WaterEmitter : public Gore::Particles::Emitter {
 private:
 	std::vector<Water> particles;
 	Gore::SpatialAcceleration::SpatialHashMap<Water> p_map = Gore::SpatialAcceleration::SpatialHashMap<Water>(800, 0, 25);
 	Water* fep;
+	Gore::TextureDraw* tdraw;
 public:
-	WaterEmitter(Water* par, double spawntime) { fep = par; timetospawn = spawntime; }
+	WaterEmitter(Water* par, double spawntime, Gore::TextureDraw* tin) { fep = par; timetospawn = spawntime; tdraw = tin; }
 	void spawnParticle() {
 		fep->trajx = cos(double(fep->rangelow + (std::rand() % (fep->rangehigh - fep->rangelow + 1))) * M_PI / 180.0);
 		fep->trajy = sin(double(fep->rangelow + (std::rand() % (fep->rangehigh - fep->rangelow + 1))) * M_PI / 180.0);
@@ -248,13 +250,20 @@ int main() {
 		SDL_GetTextureBlendMode(*ttp->current, &bp);
 		ttp = ttp->next;
 	}
-	Gore::Particle fp(400, 600, 190, 360, {400, 600, 5, 5}, particelist1);
-	Gore::Emitter emit(&fp, 0.2);
-	Fire firep(200, 650, 25, 105, { 300, 600, 5, 5 }, particelist1);
+	//texture draw
+	Gore::TextureDraw texdr(800, 800, 32, SDL_PIXELFORMAT_RGBA8888, rend);
+	texdr.clear();
+	texdr.appendSurf(*animlist.search("enem1_1.png"), 200, 200);
+	texdr.appendSurf(*animlist.search("enem1_2.png"), 790, 200);
+	texdr.appendSurf(*animlist.search("enem1_3.png"), 200, 790);
+	//more particle stuff
+	Gore::Particles::Particle fp(400, 600, 190, 360, {400, 600, 5, 5}, particelist1);
+	Gore::Particles::Emitter emit(&fp, 0.2);
+	Fire firep(200, 650, 25, 105, { 300, 600, 5, 5 }, particelist1, &texdr);
 	firep.erase = false;
-	FireEmitter fireemit(&firep, 0.2);
-	Water waterp(650, 20, 90, 180, { 500, 650, 5, 5 }, particelist1);
-	WaterEmitter watemit(&waterp, 0.2);
+	FireEmitter fireemit(&firep, 0.2, &texdr);
+	Water waterp(650, 20, 90, 180, { 500, 650, 5, 5 }, particelist1, &texdr);
+	WaterEmitter watemit(&waterp, 0.2, &texdr);
 	//just use default fullscreen SDL2 provides
 	//SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN);
 	Gore::Animate::FKLimb bone2({ Gore::Animate::FKBone(0.15, 100, 300, 600), Gore::Animate::FKBone(0.45, 100, 400, 550), Gore::Animate::FKBone(0.15, 50, 400, 600), Gore::Animate::FKBone(0.55, 50, 400, 600) });
@@ -264,12 +273,9 @@ int main() {
 	float secangle = 0.45;
 	double bone3time = 0;
 	double bonetime = 0;
-	//texture draw
-	Gore::TextureDraw texdr(800, 800, 32, SDL_PIXELFORMAT_RGBA8888, rend);
-	texdr.clear();
-	texdr.appendSurf(*animlist.search("enem1_1.png"), 200, 200);
-	texdr.appendSurf(*animlist.search("enem1_2.png"), 790, 200);
-	texdr.appendSurf(*animlist.search("enem1_3.png"), 200, 790);
+	//text
+	Gore::Text textdraw(rend);
+	textdraw.loadFont("arial.ttf");
 	while (!exitf) {
 		while (SDL_PollEvent(&e)) {
 			switch (e.type) {
@@ -379,6 +385,7 @@ int main() {
 			posx += 30;
 		}
 		texdr.drawTex({ 0, 0, 800, 800 });
+		textdraw.drawText("Hello World", "arial.ttf", 300, 650, 48);
 		bone2.bones[0].angle = thangle;
 		bone2.bones[1].angle = secangle;
 		if (bone3time > 0.01) {
