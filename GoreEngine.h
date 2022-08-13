@@ -457,6 +457,8 @@ namespace Gore {
 		}
 	};
 
+
+
 	class Bounder {
 	private:
 	public:
@@ -493,19 +495,33 @@ namespace Gore {
 		SDL_Surface* surf;
 		SDL_Renderer* rend;
 		bool changed = false;
+		char* pixels;
 	public:
-		TextureDraw(int w, int h, int depth, Uint32 form, SDL_Renderer* ren) {
-			surf = SDL_CreateRGBSurfaceWithFormat(0, w, h, depth, form);
+		TextureDraw() {
+			tex = nullptr;
+			surf = nullptr;
+			pixels = nullptr;
+		}
+		TextureDraw(int win, int hin, int depth, Uint32 form, SDL_Renderer* ren) {
+			surf = SDL_CreateRGBSurfaceWithFormat(0, win, hin, depth, form);
 			rend = ren;
-			tex = SDL_CreateTextureFromSurface(rend, surf);
+			tex = SDL_CreateTexture(rend, form, SDL_TEXTUREACCESS_STREAMING, win, hin);
+			SDL_SetTextureBlendMode(tex, SDL_BLENDMODE_BLEND);
+			SDL_LockTexture(tex, NULL, (void**)&pixels, &surf->pitch);
+			SDL_UnlockTexture(tex);
+		}
+		~TextureDraw() {
+			SDL_FreeSurface(surf);
+			SDL_DestroyTexture(tex);
 		}
 		//has to be same format as this objects surf
 		void appendSurf(SDL_Surface* in, int x, int y) {
 			if (in->format->format != surf->format->format) {
 				return;
 			}
+			if (!changed) { SDL_LockTexture(tex, NULL, (void**)&pixels, &surf->pitch); }
+			char* dst = pixels;
 			char* src = (char*)in->pixels;
-			char* dst = (char*)surf->pixels;
 			size_t pos = 0;
 			dst += (y * surf->pitch);
 			pos += y;
@@ -515,25 +531,48 @@ namespace Gore {
 				std::memcpy(dst, src, in->pitch);
 				src += in->pitch;
 				//added ? here to check if dst will go out of bounds, and if it does just return
-				(pos + 1 > surf->h) ? dst = (char*)surf->pixels : dst += surf->pitch;
+				(pos + 1 > surf->h) ? dst = pixels : dst += surf->pitch;
 				pos++;
-				if (dst == (char*)surf->pixels) { return; }
-				//dst += surf->pitch;
+				if (dst == pixels) { changed = true;  return; }
 			}
 			changed = true;
 		}
 		void drawTex(SDL_Rect rect) {
 			if (changed) {
-				SDL_DestroyTexture(tex);
-				tex = SDL_CreateTextureFromSurface(rend, surf);
+				SDL_UnlockTexture(tex);
 				changed = false;
 			}
 			SDL_RenderCopy(rend, tex, NULL, &rect);
 		}
 		void clear() {
-			Engine::clearSurface(surf);
+			Engine::clearTexture(tex, &surf->pitch, surf->w, surf->h);
 		}
 	};
+
+	class ParticleHandler {
+	private:
+		TextureDraw drawt;
+		std::vector<Particle*> particles;
+		int x;
+		int y;
+	public:
+		ParticleHandler(int posx, int posy, SDL_Renderer* rend, int w, int h, int depth, Uint32 pixelformat) {
+			drawt = TextureDraw(w, h, depth, pixelformat, rend);
+			x = posx;
+			y = posy;
+		}
+		void addParticle() {
+			
+		}
+		void addEmitter() {
+			
+		}
+		void update() {
+			
+		}
+	};
+
+
 
 	namespace SpatialAcceleration {
 
