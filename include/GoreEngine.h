@@ -1,10 +1,10 @@
 #pragma once
 #include <iostream>
+#include <vector>
 #include <fstream>
 #include <random>
 #include <SDL.h>
-#include <array>
-#include <list>
+#include <map>
 #include <ft2build.h>
 #include "lodepng.h"
 #include "g_primitive_funcs.h"
@@ -84,9 +84,15 @@ namespace Gore {
 	};
 	class Text {
 	private:
+		struct Glyph {
+			SDL_Texture* tex;
+			Gore::Point size;
+			Gore::Point bearing;
+		};
 		struct FontObj {
 			FT_Face font;
-			Gore::ForwardList<SDL_Texture*> texlist;
+			std::map<char, Glyph> fontmap;
+			//Gore::ForwardList<SDL_Texture*> texlist;
 		};
 		SDL_Renderer* rend;
 		FT_Library ft = nullptr;
@@ -105,17 +111,35 @@ namespace Gore {
 				std::cout << "ERROR::FREETYPE: Failed to load font" << std::endl;
 				return;
 			}
-			Gore::ForwardList<SDL_Texture*> list;
-			FT_Set_Pixel_Sizes(font, 0, size);
-			for (unsigned char i = 0; i < 128; i++) {
-				FT_Load_Char(font, i, FT_LOAD_RENDER);
-				SDL_Surface* surf = SDL_CreateRGBSurfaceFrom(font->glyph->bitmap.buffer, font->glyph->bitmap.width, font->glyph->bitmap.rows, 8, font->glyph->bitmap.pitch, 0x000000ff, 0x0000ff00, 0x00ff0000, 0xff000000);
+			std::map<char, Glyph> list;
+			FT_Set_Pixel_Sizes(font, size/2, size);
+			for (char i = 0; i < 127; i++) {
+				if (FT_Load_Char(font, i, FT_LOAD_RENDER))
+				{
+					std::cout << "ERROR::FREETYTPE: Failed to load Glyph" << std::endl;
+					continue;
+				}
+				SDL_Surface* surf = SDL_CreateRGBSurfaceWithFormatFrom(font->glyph->bitmap.buffer, font->glyph->bitmap.width, font->glyph->bitmap.rows, 8, font->glyph->bitmap.pitch, SDL_PIXELFORMAT_INDEX8);
 				//have to create a color surface from surf, and then push that into tex
-				SDL_Texture* tex = SDL_CreateTextureFromSurface(rend, surf);
+				{
+				SDL_Palette* palette = surf->format->palette;
+				palette->colors[0].r = 255 - color.r;
+				palette->colors[0].g = 255 - color.g;
+				palette->colors[0].b = 255 - color.b;
+				palette->colors[1].r = color.r;
+				palette->colors[1].g = color.g;
+				palette->colors[1].b = color.b;
+				palette->colors[1].a = color.a;
+				}
+				SDL_SetColorKey(surf, SDL_TRUE, 0);
+				SDL_Surface* surf2 = SDL_ConvertSurfaceFormat(surf, SDL_PIXELFORMAT_RGBA8888, 0);
+				SDL_Texture* tex = SDL_CreateTextureFromSurface(rend, surf2);
 				SDL_FreeSurface(surf);
-				std::string temp;
-				temp.push_back(i);
-				list.insert(tex, temp);
+				SDL_FreeSurface(surf2);
+				std::string temp = std::to_string(i);
+				//temp.push_back(i);
+				Glyph c_glp = { tex, {font->glyph->bitmap.width, font->glyph->bitmap.rows}, {font->glyph->bitmap_left, font->glyph->bitmap_top} };
+				list.insert(std::pair<char, Glyph>(i, c_glp));
 			}
 			fonts.insert({ font, list}, file);
 		}
@@ -126,9 +150,9 @@ namespace Gore {
 				return;
 			}
 			for (auto& i : text) {
-				std::string temp;
-				temp.push_back(i);
-				SDL_Texture* tex = *font->texlist.search(temp);
+				std::string temp = std::to_string(i);
+				//temp.push_back(i);
+				SDL_Texture* tex = font->fontmap[i].tex;
 				SDL_Rect rect = { x, y, fontsize, fontsize };
 				SDL_RenderCopy(rend, tex, NULL, &rect);
 				x += fontsize + 1;
