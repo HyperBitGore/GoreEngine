@@ -88,10 +88,12 @@ namespace Gore {
 			SDL_Texture* tex;
 			Gore::Point size;
 			Gore::Point bearing;
+			unsigned int advance;
 		};
 		struct FontObj {
 			FT_Face font;
 			std::map<char, Glyph> fontmap;
+			int b_size;
 			//Gore::ForwardList<SDL_Texture*> texlist;
 		};
 		SDL_Renderer* rend;
@@ -112,36 +114,42 @@ namespace Gore {
 				return;
 			}
 			std::map<char, Glyph> list;
-			FT_Set_Pixel_Sizes(font, size/2, size);
-			for (char i = 0; i < 127; i++) {
-				if (FT_Load_Char(font, i, FT_LOAD_RENDER))
-				{
-					std::cout << "ERROR::FREETYTPE: Failed to load Glyph" << std::endl;
-					continue;
+			FT_Set_Pixel_Sizes(font, 0, size);
+			//font->charmap->face;
+			FT_Select_Charmap(font, FT_ENCODING_UNICODE);
+			for (unsigned char i = 0; i < 128; i++) {
+				if (i != 32) {
+					unsigned long c = FT_Get_Char_Index(font, FT_ULong(i));
+					if (FT_Load_Glyph(font, c, FT_LOAD_DEFAULT)) {
+						std::cerr << "Failed to load glyph " << c << std::endl;
+					}
+					FT_Render_Glyph(font->glyph, FT_RENDER_MODE_NORMAL);
+
+					//https://kevinboone.me/fbtextdemo.html?i=1
+					//https://stackoverflow.com/questions/50145739/rendering-text-with-freetype-and-sdl2-produces-white-squares-instead-of-characte
+					SDL_Surface* surf = SDL_CreateRGBSurfaceWithFormatFrom(font->glyph->bitmap.buffer, font->glyph->bitmap.width, font->glyph->bitmap.rows, 8, font->glyph->bitmap.pitch, SDL_PIXELFORMAT_INDEX8);
+					//have to create a color surface from surf, and then push that into tex
+					SDL_Color colors[256];
+					for (int j = 0; j < 256; j++)
+					{
+						colors[j].r = colors[j].g = colors[j].b = j;
+					}
+					SDL_SetPaletteColors(surf->format->palette, colors, 0, 256);
+
+					//try switching back to using linked list for pair storage
+					SDL_Surface* surf2 = SDL_ConvertSurfaceFormat(surf, SDL_PIXELFORMAT_RGBA8888, 0);
+					SDL_Texture* tex = SDL_CreateTextureFromSurface(rend, surf2);
+					SDL_SetTextureColorMod(tex, color.r, color.g, color.b);
+					SDL_SetTextureBlendMode(tex, SDL_BLENDMODE_BLEND);
+					SDL_FreeSurface(surf);
+					SDL_FreeSurface(surf2);
+					std::string temp = std::to_string(i);
+					//temp.push_back(i);
+					Glyph c_glp = { tex, {font->glyph->bitmap.width, font->glyph->bitmap.rows}, {font->glyph->bitmap_left, font->glyph->bitmap_top}, static_cast<unsigned int>(font->glyph->advance.x) };
+					list.insert(std::pair<char, Glyph>(char(i), c_glp));
 				}
-				SDL_Surface* surf = SDL_CreateRGBSurfaceWithFormatFrom(font->glyph->bitmap.buffer, font->glyph->bitmap.width, font->glyph->bitmap.rows, 8, font->glyph->bitmap.pitch, SDL_PIXELFORMAT_INDEX8);
-				//have to create a color surface from surf, and then push that into tex
-				{
-				SDL_Palette* palette = surf->format->palette;
-				palette->colors[0].r = 255 - color.r;
-				palette->colors[0].g = 255 - color.g;
-				palette->colors[0].b = 255 - color.b;
-				palette->colors[1].r = color.r;
-				palette->colors[1].g = color.g;
-				palette->colors[1].b = color.b;
-				palette->colors[1].a = color.a;
-				}
-				SDL_SetColorKey(surf, SDL_TRUE, 0);
-				SDL_Surface* surf2 = SDL_ConvertSurfaceFormat(surf, SDL_PIXELFORMAT_RGBA8888, 0);
-				SDL_Texture* tex = SDL_CreateTextureFromSurface(rend, surf2);
-				SDL_FreeSurface(surf);
-				SDL_FreeSurface(surf2);
-				std::string temp = std::to_string(i);
-				//temp.push_back(i);
-				Glyph c_glp = { tex, {font->glyph->bitmap.width, font->glyph->bitmap.rows}, {font->glyph->bitmap_left, font->glyph->bitmap_top} };
-				list.insert(std::pair<char, Glyph>(i, c_glp));
 			}
-			fonts.insert({ font, list}, file);
+			fonts.insert({ font, list, size}, file);
 		}
 		void drawText(std::string text, std::string fontfile, int x, int y, int fontsize) {
 			FontObj* font = fonts.search(fontfile);
@@ -149,13 +157,19 @@ namespace Gore {
 				std::cerr << "Failed to find font" << std::endl;
 				return;
 			}
+			//normalize fontsize
+			float n_f = (float(font->b_size) / float(fontsize));
 			for (auto& i : text) {
-				std::string temp = std::to_string(i);
-				//temp.push_back(i);
-				SDL_Texture* tex = font->fontmap[i].tex;
-				SDL_Rect rect = { x, y, fontsize, fontsize };
-				SDL_RenderCopy(rend, tex, NULL, &rect);
-				x += fontsize + 1;
+				Glyph* gl = &font->fontmap[i];
+				int xpos = x + gl->bearing.x;
+				int ypos = y - gl->bearing.y;
+				float w = gl->size.x * n_f;
+				float h = gl->size.y * n_f;
+				//float h = fontsize;
+				SDL_Texture* tex = gl->tex;
+				SDL_FRect rect = { xpos, ypos, w, h };
+				SDL_RenderCopyF(rend, tex, NULL, &rect);
+				(i > 32) ? x += (gl->advance >> 6) * n_f : x += fontsize;
 			}
 		}
 

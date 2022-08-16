@@ -386,8 +386,8 @@ int main() {
 			posx += 30;
 		}
 		texdr.drawTex({ 0, 0, 800, 800 });
-		textdraw.drawText("HeLLo World sneed", "arial.ttf", 200, 650, 30);
-		textdraw.drawText("welcome home", "Roboto-Light.ttf", 200, 450, 25);
+		textdraw.drawText("Hello, World sneed", "arial.ttf", 100, 650, 35);
+		textdraw.drawText("welcome, home's", "Roboto-Light.ttf", 200, 550, 25);
 		bone2.bones[0].angle = thangle;
 		bone2.bones[1].angle = secangle;
 		if (bone3time > 0.01) {
