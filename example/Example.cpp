@@ -276,7 +276,7 @@ int main() {
 	//text
 	Gore::Text textdraw(rend);
 	textdraw.loadFont("arial.ttf", 48, {255, 50, 150, 255});
-	textdraw.loadFont("Roboto-Light.ttf", 25, { 255, 50, 150, 255 });
+	textdraw.loadFont("OpenSans-VariableFont_wdth,wght.ttf", 25, { 255, 50, 150, 255 });
 	while (!exitf) {
 		while (SDL_PollEvent(&e)) {
 			switch (e.type) {
@@ -386,8 +386,8 @@ int main() {
 			posx += 30;
 		}
 		texdr.drawTex({ 0, 0, 800, 800 });
-		textdraw.drawText("Hello, World sneed", "arial.ttf", 100, 650, 35);
-		textdraw.drawText("welcome, home's", "Roboto-Light.ttf", 200, 550, 25);
+		textdraw.drawText("Hello, World sneed", "arial.ttf", 200, 650, 50);
+		textdraw.drawText("welcome, home's", "OpenSans-VariableFont_wdth,wght.ttf", 200, 550, 20);
 		bone2.bones[0].angle = thangle;
 		bone2.bones[1].angle = secangle;
 		if (bone3time > 0.01) {

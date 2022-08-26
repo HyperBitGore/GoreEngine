@@ -158,7 +158,7 @@ namespace Gore {
 				return;
 			}
 			//normalize fontsize
-			float n_f = (float(font->b_size) / float(fontsize));
+			float n_f = (float(fontsize) / float(font->b_size));
 			for (auto& i : text) {
 				Glyph* gl = &font->fontmap[i];
 				int xpos = x + gl->bearing.x;
@@ -701,7 +701,10 @@ namespace Gore {
 			//finds bucket point is located in
 			HashObj<T>* find(FPoint pt) {
 				int p = hash(pt);
-				return buckets[p];
+				if (p < buckets.size()) {
+					return buckets[p];
+				}
+				else { return nullptr; }
 			}
 			~SpatialHashMap() {
 				//destroy the chain data and then clear buckets
