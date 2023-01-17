@@ -9,6 +9,7 @@
 #include "lodepng.h"
 #include "g_primitive_funcs.h"
 #include FT_FREETYPE_H
+#include FT_COLOR_H
 
 //Didn't want to include windows header to do resource exe inclusion so just follow along with this page if you want to do this. 
 //https://stackoverflow.com/questions/22151099/including-data-file-into-c-project
@@ -17,7 +18,10 @@
 
 
 
+
+
 namespace Gore {
+
 	template<typename TP>
 	struct FreeElement {
 		TP el;
@@ -66,6 +70,25 @@ namespace Gore {
 	struct FPoint {
 		float x;
 		float y;
+	};
+	struct Insert {
+		int key;
+		Insert* next;
+	};
+	struct COLLIDER {
+		float x;
+		float y;
+		int w;
+		int h;
+		int key;
+		//for if inserted outside one cell
+		Insert* inserts = nullptr;
+		Gore::FPoint inspoint;
+	};
+	struct castReturn {
+		bool hit;
+		Gore::FPoint point;
+		float length;
 	};
 	//4 byte: x, 4 byte: y, 4 byte: color data; repeat through data;
 	struct PixelTransform {
@@ -120,36 +143,80 @@ namespace Gore {
 			for (unsigned char i = 0; i < 128; i++) {
 				if (i != 32) {
 					unsigned long c = FT_Get_Char_Index(font, FT_ULong(i));
-					if (FT_Load_Glyph(font, c, FT_LOAD_DEFAULT)) {
-						std::cerr << "Failed to load glyph " << c << std::endl;
-					}
-					FT_Render_Glyph(font->glyph, FT_RENDER_MODE_NORMAL);
+					FT_Error er = FT_Load_Glyph(font, c, FT_LOAD_DEFAULT);
+					if (!er) {
+						er = FT_Render_Glyph(font->glyph, FT_RENDER_MODE_NORMAL);
+						if (!er) {
+							//https://kevinboone.me/fbtextdemo.html?i=1
+							//https://stackoverflow.com/questions/50145739/rendering-text-with-freetype-and-sdl2-produces-white-squares-instead-of-characte
+							SDL_Surface* surf = SDL_CreateRGBSurfaceWithFormatFrom(font->glyph->bitmap.buffer, font->glyph->bitmap.width, font->glyph->bitmap.rows, 8, font->glyph->bitmap.pitch, SDL_PIXELFORMAT_INDEX8);
+							//have to create a color surface from surf, and then push that into tex
+							SDL_Color colors[256];
+							for (int j = 0; j < 256; j++)
+							{
+								colors[j].a = colors[j].r = colors[j].g = colors[j].b = j;
+							}
+							SDL_SetPaletteColors(surf->format->palette, colors, 0, 256);
 
-					//https://kevinboone.me/fbtextdemo.html?i=1
-					//https://stackoverflow.com/questions/50145739/rendering-text-with-freetype-and-sdl2-produces-white-squares-instead-of-characte
-					SDL_Surface* surf = SDL_CreateRGBSurfaceWithFormatFrom(font->glyph->bitmap.buffer, font->glyph->bitmap.width, font->glyph->bitmap.rows, 8, font->glyph->bitmap.pitch, SDL_PIXELFORMAT_INDEX8);
-					//have to create a color surface from surf, and then push that into tex
-					SDL_Color colors[256];
-					for (int j = 0; j < 256; j++)
-					{
-						colors[j].r = colors[j].g = colors[j].b = j;
+							//try switching back to using linked list for pair storage
+							SDL_Surface* surf2 = SDL_ConvertSurfaceFormat(surf, SDL_PIXELFORMAT_RGBA8888, 0);
+							SDL_Texture* tex = SDL_CreateTextureFromSurface(rend, surf2);
+							SDL_SetTextureColorMod(tex, color.r, color.g, color.b);
+							SDL_FreeSurface(surf);
+							SDL_FreeSurface(surf2);
+							std::string temp = std::to_string(i);
+							Glyph c_glp = { tex, {font->glyph->bitmap.width, font->glyph->bitmap.rows}, {font->glyph->bitmap_left, font->glyph->bitmap_top}, static_cast<unsigned int>(font->glyph->advance.x) };
+							list.insert(std::pair<char, Glyph>(char(i), c_glp));
+						}
 					}
-					SDL_SetPaletteColors(surf->format->palette, colors, 0, 256);
-
-					//try switching back to using linked list for pair storage
-					SDL_Surface* surf2 = SDL_ConvertSurfaceFormat(surf, SDL_PIXELFORMAT_RGBA8888, 0);
-					SDL_Texture* tex = SDL_CreateTextureFromSurface(rend, surf2);
-					SDL_SetTextureColorMod(tex, color.r, color.g, color.b);
-					SDL_SetTextureBlendMode(tex, SDL_BLENDMODE_BLEND);
-					SDL_FreeSurface(surf);
-					SDL_FreeSurface(surf2);
-					std::string temp = std::to_string(i);
-					//temp.push_back(i);
-					Glyph c_glp = { tex, {font->glyph->bitmap.width, font->glyph->bitmap.rows}, {font->glyph->bitmap_left, font->glyph->bitmap_top}, static_cast<unsigned int>(font->glyph->advance.x) };
-					list.insert(std::pair<char, Glyph>(char(i), c_glp));
 				}
 			}
 			fonts.insert({ font, list, size}, file);
+		}
+		//loads a font into the text object will override any previously loaded font
+		void loadFont(std::string file, int size, SDL_Color color, std::string name) {
+			FT_Face font = nullptr;
+			if (FT_New_Face(ft, file.c_str(), 0, &font)) {
+				std::cout << "ERROR::FREETYPE: Failed to load font" << std::endl;
+				return;
+			}
+			std::map<char, Glyph> list;
+			FT_Set_Pixel_Sizes(font, 0, size);
+			//coloring
+			FT_Color col = { color.b, color.g, color.r, color.a };
+			//font->charmap->face;
+			FT_Select_Charmap(font, FT_ENCODING_UNICODE);
+			for (unsigned char i = 0; i < 128; i++) {
+				if (i != 32) {
+					unsigned long c = FT_Get_Char_Index(font, FT_ULong(i));
+					FT_Error er = FT_Load_Glyph(font, c, FT_LOAD_DEFAULT);
+					if (!er) {
+						er = FT_Render_Glyph(font->glyph, FT_RENDER_MODE_NORMAL);
+						if (!er) {
+							//https://kevinboone.me/fbtextdemo.html?i=1
+							//https://stackoverflow.com/questions/50145739/rendering-text-with-freetype-and-sdl2-produces-white-squares-instead-of-characte
+							SDL_Surface* surf = SDL_CreateRGBSurfaceWithFormatFrom(font->glyph->bitmap.buffer, font->glyph->bitmap.width, font->glyph->bitmap.rows, 8, font->glyph->bitmap.pitch, SDL_PIXELFORMAT_INDEX8);
+							//have to create a color surface from surf, and then push that into tex
+							SDL_Color colors[256];
+							for (int j = 0; j < 256; j++)
+							{
+								colors[j].a = colors[j].r = colors[j].g = colors[j].b = j;
+							}
+							SDL_SetPaletteColors(surf->format->palette, colors, 0, 256);
+							//try switching back to using linked list for pair storage
+							SDL_Surface* surf2 = SDL_ConvertSurfaceFormat(surf, SDL_PIXELFORMAT_RGBA8888, 0);
+							SDL_Texture* tex = SDL_CreateTextureFromSurface(rend, surf2);
+							SDL_SetTextureColorMod(tex, color.r, color.g, color.b);
+							SDL_FreeSurface(surf);
+							SDL_FreeSurface(surf2);
+							std::string temp = std::to_string(i);
+							Glyph c_glp = { tex, {font->glyph->bitmap.width, font->glyph->bitmap.rows}, {font->glyph->bitmap_left, font->glyph->bitmap_top}, static_cast<unsigned int>(font->glyph->advance.x) };
+							list.insert(std::pair<char, Glyph>(char(i), c_glp));
+						}
+					}
+				}
+			}
+			fonts.insert({ font, list, size }, name);
 		}
 		void drawText(std::string text, std::string fontfile, int x, int y, int fontsize) {
 			FontObj* font = fonts.search(fontfile);
@@ -698,6 +765,32 @@ namespace Gore {
 				}
 				return false;
 			}
+			//removes from certain bucket
+			bool remove(int key, T* obj) {
+				int p = key;
+				if (p >= buckets.size()) {
+					return false;
+				}
+				HashObj<T>* ptr1 = buckets[p];
+				HashObj<T>* prev = nullptr;
+				while (ptr1 != nullptr) {
+					if (ptr1->obj == obj) {
+						//delete current ptr and set it equal to last object
+						if (prev != nullptr) {
+							prev->next = ptr1->next;
+						}
+						else {
+							buckets[p] = ptr1->next;
+						}
+						delete ptr1;
+						return true;
+					}
+					prev = ptr1;
+					ptr1 = ptr1->next;
+				}
+				return false;
+			}
+
 			//finds bucket point is located in
 			HashObj<T>* find(FPoint pt) {
 				int p = hash(pt);
@@ -933,4 +1026,159 @@ namespace Gore {
 		};
 
 	}
+	class CollisionMap {
+	private:
+		SpatialAcceleration::SpatialHashMap<COLLIDER> map;
+	public:
+		CollisionMap(float width, int cell_width) {
+			map.~SpatialHashMap();
+			map = Gore::SpatialAcceleration::SpatialHashMap<COLLIDER>(width, 0.0f, cell_width);
+		}
+		bool isColliding(COLLIDER e1, COLLIDER e2) {
+			return (e1.x < e2.x + e2.w && e1.x + e1.w > e2.x && e1.y < e2.y + e2.h && e1.y + e1.h > e2.y);
+		}
+
+		Gore::SpatialAcceleration::HashObj<COLLIDER>* find(Gore::FPoint point) {
+			return map.find({ point.x, point.y });
+		}
+		void insert(COLLIDER* e) {
+			if (map.hash({ e->x, e->y }) == map.hash({ e->x + e->w, e->y + e->h })) {
+				e->key = map.insert(e, { e->x, e->y });
+				e->inspoint = { e->x, e->y };
+			}
+			else {
+				multiInsert(e);
+			}
+		}
+		void multiInsert(COLLIDER* e) {
+			//check with both
+			for (int y = e->y + e->h; y > e->y; y--) {
+				for (int x = e->x + e->w; x > e->x; x--) {
+					int hash = map.hash({ float(x), float(y) });
+					Insert* ptr = e->inserts;
+					bool skip = false;
+					while (ptr != nullptr) {
+						if (ptr->key == hash) {
+							skip = true;
+							ptr = nullptr;
+						}
+						else {
+							ptr = ptr->next;
+						}
+					}
+					if (!skip) {
+						Insert* in = new Insert;
+						in->key = hash;
+						in->next = e->inserts;
+						e->inserts = in;
+						map.insert(e, { float(x), float(y) });
+					}
+				}
+			}
+		}
+		void multiRemove(COLLIDER* e) {
+			Insert* ptr = e->inserts;
+			while (ptr != nullptr) {
+				Insert* next = ptr->next;
+				map.remove(ptr->key, e);
+				//now delete current ptr
+				delete ptr;
+				ptr = next;
+			}
+			e->inserts = nullptr;
+		}
+		void remove(COLLIDER* e) {
+			if (e->inserts != nullptr) {
+				multiRemove(e);
+			}
+			else {
+				map.remove(e->inspoint, e);
+			}
+		}
+		void move(COLLIDER* e) {
+			map.remove(e->inspoint, e);
+			e->key = map.insert(e, { e->x, e->y });
+			e->inspoint = { e->x, e->y };
+		}
+		SpatialAcceleration::HashObj<COLLIDER>* getBucket(Gore::FPoint p) {
+			return map.find(p);
+		}
+		COLLIDER* checkCollision(COLLIDER e) {
+			Gore::SpatialAcceleration::HashObj<COLLIDER>* ptr = map.find({ e.x, e.y });
+			while (ptr != nullptr) {
+				if (isColliding(e, *ptr->obj)) {
+					return ptr->obj;
+				}
+				ptr = ptr->next;
+			}
+			return nullptr;
+		}
+		//for making sure it doesn't collide with itself
+		COLLIDER* checkCollisionSelf(COLLIDER* e) {
+			Gore::SpatialAcceleration::HashObj<COLLIDER>* ptr = map.find({ e->x, e->y });
+			while (ptr != nullptr) {
+				if (isColliding(*e, *ptr->obj) && ptr->obj != e) {
+					return ptr->obj;
+				}
+				ptr = ptr->next;
+			}
+			return nullptr;
+		}
+		//will raycast till it hits end point, collides with something, or hits max length
+		castReturn raycast(Gore::FPoint start, Gore::FPoint target, float maxlength) {
+			bool hit = false;
+			Gore::FPoint cur = start;
+			float len = 0;
+			float angle = atan2f(target.y - start.y, target.x - start.x);
+			float stepx = cosf(angle);
+			float stepy = sinf(angle);
+			do {
+				Gore::SpatialAcceleration::HashObj<COLLIDER>* ptr = map.find(cur);
+				while (ptr != nullptr) {
+					if (isColliding({ cur.x, cur.y, 1, 1 }, *ptr->obj)) {
+						return { false, cur, len};
+					}
+					ptr = ptr->next;
+				}
+				if (isColliding({ cur.x, cur.y, 1, 1 }, { target.x, target.y, 5, 5 })) {
+					hit = true;
+				}
+				else {
+					cur.x += stepx;
+					cur.y += stepy;
+					len += angle;
+				}
+			} while (!hit);
+			return { true, cur, len };
+		}
+		//pass an angle in radians
+		castReturn raycast(Gore::FPoint start, float angle, float maxlength) {
+			bool hit = false;
+			Gore::FPoint cur = start;
+			float len = 0;
+			float stepx = cosf(angle);
+			float stepy = sinf(angle);
+			do {
+				Gore::SpatialAcceleration::HashObj<COLLIDER>* ptr = map.find(cur);
+				while (ptr != nullptr) {
+					if (isColliding({ cur.x, cur.y, 1, 1 }, *ptr->obj)) {
+						return { false, cur, len };
+					}
+					ptr = ptr->next;
+				}
+				if (len >= maxlength) {
+					hit = true;
+				}
+				else {
+					cur.x += stepx;
+					cur.y += stepy;
+					len += angle;
+				}
+			} while (!hit);
+			return { true, cur, len };
+		}
+
+	};
+
+
 }

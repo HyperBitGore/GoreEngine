@@ -275,8 +275,18 @@ int main() {
 	double bonetime = 0;
 	//text
 	Gore::Text textdraw(rend);
+	//don't draw text smaller than the size you loaded the font at
 	textdraw.loadFont("arial.ttf", 48, {255, 50, 150, 255});
-	textdraw.loadFont("OpenSans-VariableFont_wdth,wght.ttf", 25, { 255, 50, 150, 255 });
+	textdraw.loadFont("OpenSans-VariableFont_wdth,wght.ttf", 20, { 255, 50, 150, 255 });
+	textdraw.loadFont("arial.ttf", 35, { 255, 100, 50, 255 }, "dark_arial");
+	//collision stuff
+	Gore::Vector<Gore::COLLIDER> cols;
+	//gonna wanna reserve the space for you vector or else all the pointers in collision map will invalidate
+	cols.reserve(1000);
+	cols.push_back({ 300, 300, 15, 15 });
+	Gore::CollisionMap collision_map = Gore::CollisionMap(800, 25);
+	collision_map.insert(&cols[0]);
+	Gore::FPoint last_target = { 20, 20 };
 	while (!exitf) {
 		while (SDL_PollEvent(&e)) {
 			switch (e.type) {
@@ -334,6 +344,9 @@ int main() {
 					tex1 = SDL_CreateTextureFromSurface(rend, imgsurf);
 				}
 			}
+		}if (SDL_GetMouseState(&mx, &my) & SDL_BUTTON(SDL_BUTTON_RIGHT)) {
+			last_target.x = mx;
+			last_target.y = my;
 		}
 		Gore::Engine::clearSurface(surface);
 		int yy = 500;
@@ -386,8 +399,9 @@ int main() {
 			posx += 30;
 		}
 		texdr.drawTex({ 0, 0, 800, 800 });
-		textdraw.drawText("Hello, World sneed", "arial.ttf", 200, 650, 50);
+		textdraw.drawText("Hello, World sneed", "arial.ttf", 200, 400, 65);
 		textdraw.drawText("welcome, home's", "OpenSans-VariableFont_wdth,wght.ttf", 200, 550, 20);
+		textdraw.drawText("TEST", "dark_arial", 20, 100, 50);
 		bone2.bones[0].angle = thangle;
 		bone2.bones[1].angle = secangle;
 		if (bone3time > 0.01) {
@@ -401,6 +415,17 @@ int main() {
 		bone3.debugDraw(rend);
 		bone4.reach(mx, my);
 		bone4.debugDraw(rend);
+		//collision map
+		SDL_SetRenderDrawColor(rend, 50, 50, 255, 255);
+		for (auto& i : cols) {
+			SDL_Rect errect = { i.x, i.y, i.w, i.h };
+			SDL_RenderDrawRect(rend, &errect);
+		}
+		Gore::FPoint start = { player.x, player.y };
+		Gore::castReturn ret = collision_map.raycast(start, last_target, 500.0f);
+		Gore::FPoint end = ret.point;
+		SDL_SetRenderDrawColor(rend, 50, 255, 50, 255);
+		SDL_RenderDrawLineF(rend, start.x, start.y, end.x, end.y);
 		SDL_RenderPresent(rend);
 	}
 	return 0;
